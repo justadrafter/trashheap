@@ -1,0 +1,6 @@
+title:
+  en_us: Columns
+layout:
+  - MatchXY
+  - ColumnMark
+  - ColumnElevations

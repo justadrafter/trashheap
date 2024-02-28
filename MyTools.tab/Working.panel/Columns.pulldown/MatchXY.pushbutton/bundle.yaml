@@ -1,0 +1,5 @@
+title:Match X Y
+  en_us: Match X Y of selected Cols
+tooltip:
+  en_us: >-
+    Select all cols first, then select target to match to

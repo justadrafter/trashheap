@@ -1,0 +1,14 @@
+{
+    "builtin": "False",
+    "default_enabled": "True",
+    "type": "extension",
+    "rocket_mode_compatible": "False",
+    "name": "PyHera",
+    "description": "Extensions for PyRevit",
+    "author": "ashaw",
+    "author_profile": "https://github.com/justadrafter",
+    "url": "https://github.com/justadrafter/trashheap.git",
+    "website": "",
+    "image": "",
+    "dependencies": []
+}
