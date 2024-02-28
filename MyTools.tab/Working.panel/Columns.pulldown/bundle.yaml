@@ -1,5 +1,4 @@
-title:
-  en_us: Columns
+title: Columns
 layout:
   - MatchXY
   - ColumnMark

@@ -1,5 +1,2 @@
-title:
-  en_us: Create column X & Y sections for selected columns
-tooltip:
-  en_us: >-
-    Select columns first, run script
+title: Create column X & Y sections for selected columns
+tooltip: Select columns first, run script
