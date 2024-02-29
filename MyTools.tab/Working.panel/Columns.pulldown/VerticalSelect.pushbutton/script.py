@@ -1,5 +1,3 @@
-"""Select all columns with similar X,Y"""
-
 from pyrevit import revit, DB
 from Autodesk.Revit.DB import LocationCurve, LocationPoint
 
