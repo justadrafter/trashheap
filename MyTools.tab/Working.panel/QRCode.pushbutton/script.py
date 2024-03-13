@@ -1,33 +1,57 @@
 #!python3
-import sys
-sys.path.append(r'c:\program files\python38\lib\site-packages')
-import io
-import qrcode
+import clr
+clr.AddReference('System.Windows.Forms')
+clr.AddReference('System.Drawing')
 
-from Autodesk.Revit.DB import FilteredElementCollector, BuiltInCategory, Transaction
+from System.Windows.Forms import Application, Form, TextBox, Button, Label, DialogResult
+from System.Drawing import Size, Point
 
-doc = __revit__.ActiveUIDocument.Document
-t = Transaction(doc, 'Set QR Code')
+class InputForm(Form):
+    def __init__(self):
+        self.InitializeComponent()
+    
+    def InitializeComponent(self):
+        self.Text = 'Input Dialog'
+        self.Size = Size(300, 150)
 
-# Find the Project Information element
-proj_info_collector = FilteredElementCollector(doc)
-proj_info = proj_info_collector.OfCategory(BuiltInCategory.OST_ProjectInformation).FirstElement()
+        self.label = Label()
+        self.label.Text = "Enter some text:"
+        self.label.Location = Point(10, 20)
+        self.label.Size = Size(280, 20)
+        self.Controls.Add(self.label)
 
-# Get the parameter by name
-qrcodeurl = proj_info.LookupParameter('Project QR Code')
+        self.textBox = TextBox()
+        self.textBox.Location = Point(10, 50)
+        self.textBox.Size = Size(280, 20)
+        self.Controls.Add(self.textBox)
 
-if qrcodeurl.AsString()[0:4] == "http":
-    qr = qrcode.QRCode()
-    qr.add_data(qrcodeurl.AsString())
-    f = io.StringIO()
-    qr.print_ascii(out=f)
-    f.seek(0)
-    qrcodechars = ""
-    with f as fi:
-        for line in fi:
-            qrcodechars += line[4::]
-    t.Start()
-    qrcodeurl.Set(qrcodechars)
-    t.Commit()
+        self.okButton = Button()
+        self.okButton.Text = 'OK'
+        self.okButton.Location = Point(190, 80)
+        self.okButton.Click += self.okButton_Click
+        self.Controls.Add(self.okButton)
+
+        self.cancelButton = Button()
+        self.cancelButton.Text = 'Cancel'
+        self.cancelButton.Location = Point(110, 80)
+        self.cancelButton.Click += self.cancelButton_Click
+        self.Controls.Add(self.cancelButton)
+
+    def okButton_Click(self, sender, e):
+        self.DialogResult = DialogResult.OK
+
+    def cancelButton_Click(self, sender, e):
+        self.DialogResult = DialogResult.Cancel
+
+def get_user_input():
+    form = InputForm()
+    if form.ShowDialog() == DialogResult.OK:
+        return form.textBox.Text
+    return None
+
+# Example usage
+user_input = get_user_input()
+if user_input is not None:
+    print("User input: " + user_input)
 else:
-    print("Not a valid address")
+    print("User cancelled the input dialog.")

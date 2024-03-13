@@ -3,3 +3,4 @@ layout:
   - MatchXY
   - ColumnMark
   - ColumnElevations
+  - VerticalSelect
