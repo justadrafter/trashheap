@@ -21,11 +21,3 @@ import qrcode
 #     t.Commit()
 # else:
 #     print("Not a valid address")
-
-import sys
-
-message = sys.argv[1]
-
-name = message.split("My name is ")[1]
-response = "Hello " + name + ", My name is Python 3.8"
-print(response)
