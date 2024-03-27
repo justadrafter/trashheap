@@ -1,6 +1,7 @@
-from Autodesk.Revit.DB import ElementTransformUtils, XYZ
+from Autodesk.Revit.DB import ElementTransformUtils, XYZ, BuiltInCategory, ElementId, ColumnAttachment
 from pyrevit import revit, forms
 import Autodesk.Revit.Exceptions as RevitExceptions
+
 
 def get_element_bottom_z(element):
     """
@@ -34,7 +35,8 @@ def get_element_top_z(element):
         return bbox.Max.Z  # Return the maximum Z value (top)
     else:
         return None
-    
+
+
 def move_elements(doc, elements, z_values, reference_index, offset=0.0):
     """
     Moves the elements based on the provided Z values, reference index, and offset.
@@ -56,3 +58,30 @@ def move_elements(doc, elements, z_values, reference_index, offset=0.0):
                 ElementTransformUtils.MoveElement(doc, element.Id, translation_vector)
             except RevitExceptions.ArgumentException as e:
                 forms.alert("Error moving element: " + str(e), exitscript=True)
+
+
+def get_selected_columns(doc):
+    """
+    Retrieve the selected structural columns from the active Revit document.
+    
+    Args:
+        doc (Autodesk.Revit.DB.Document): The Revit document.
+        
+    Returns:
+        list: Selected structural column elements.
+    """
+    selected_ids = revit.uidoc.Selection.GetElementIds()
+    return [doc.GetElement(id) for id in selected_ids
+            if doc.GetElement(id).Category.Id == ElementId(BuiltInCategory.OST_StructuralColumns)]
+
+
+def remove_column_attachments(column):
+    """
+    Dettach the column from top & btm
+
+    Args:
+        column (DB.FamilyInstance): The column element to dettach.
+        top_or_bottom (int): 0 for bottom attachment, 1 for top attachment.
+    """
+    ColumnAttachment.RemoveColumnAttachment(column,0)
+    ColumnAttachment.RemoveColumnAttachment(column,1)
