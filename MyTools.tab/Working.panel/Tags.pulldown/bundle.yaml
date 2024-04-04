@@ -1,0 +1,5 @@
+title:
+  en_us: Tags
+layout:
+  - SelectedElementTagsAll
+  - SelectedElementTagsInView
