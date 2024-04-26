@@ -15,7 +15,7 @@ Note: The script will copy the view-specific curves of all grids in the view of 
 from pyrevit import revit, DB, forms
 from Autodesk.Revit.DB import DatumExtentType, FilteredElementCollector
 
-__title__ = "Propagate grids from one viewport to views"
+__title__ = "Propagate 2D grids extents from viewport to views"
 __author__ = "Adam Shaw"
 
 
@@ -65,27 +65,39 @@ def copy_curves_to_views(grid_curves_dict, views):
                     grid.SetCurveInView(DatumExtentType.ViewSpecific, view, curve)
 
 
-def filter_views_by_template_and_scope_box(source_view, all_views):
+def get_scope_box_value(view):
     """
-    Filter the list of views based on the view template and scope box of the source view.
+    Get the value of the "Scope Box" parameter of the view.
     
     Args:
-        source_view (DB.View): The source view to match the view template and scope box.
+        view (DB.View): The view to retrieve the "Scope Box" parameter value from.
+        
+    Returns:
+        str: The value of the "Scope Box" parameter.
+    """
+    scope_box_param = view.Parameter[DB.BuiltInParameter.VIEWER_VOLUME_OF_INTEREST_CROP]
+    return scope_box_param.AsValueString() if scope_box_param else None
+
+
+def filter_views_by_scale_and_scope_box(source_view, all_views):
+    """
+    Filter the list of views based on the scale and scope box parameter value of the source view.
+    
+    Args:
+        source_view (DB.View): The source view to match the scale and scope box parameter value.
         all_views (list): List of all views in the model.
         
     Returns:
-        list: Filtered list of views matching the view template and scope box of the source view.
+        list: Filtered list of views matching the scale and scope box parameter value of the source view.
     """
     filtered_views = []
-    source_view_template_id = source_view.ViewTemplateId
-    source_scope_box = source_view.GetScopeBox()
+    source_view_scale = source_view.Scale
+    source_scope_box_value = get_scope_box_value(source_view)
     
     for view in all_views:
-        if view.ViewType == source_view.ViewType and view.ViewTemplateId == source_view_template_id:
-            if source_scope_box and view.GetScopeBox():
-                if view.GetScopeBox().Min == source_scope_box.Min and view.GetScopeBox().Max == source_scope_box.Max:
-                    filtered_views.append(view)
-            else:
+        if view.ViewType == source_view.ViewType and view.Scale == source_view_scale:
+            view_scope_box_value = get_scope_box_value(view)
+            if source_scope_box_value == view_scope_box_value:
                 filtered_views.append(view)
     
     return filtered_views
@@ -116,9 +128,9 @@ def main():
         return
         
     all_views = FilteredElementCollector(revit.doc).OfClass(DB.View).ToElements()
-    filtered_views = filter_views_by_template_and_scope_box(source_view, all_views)
+    filtered_views = filter_views_by_scale_and_scope_box(source_view, all_views)
     
-    sorted_views = sorted(filtered_views, key=lambda view: view.Name)
+    sorted_views = sorted(filtered_views, key=lambda view: view.GenLevel.Elevation)
     
     target_views = forms.SelectFromList.show(sorted_views, 
                                              multiselect=True, 
