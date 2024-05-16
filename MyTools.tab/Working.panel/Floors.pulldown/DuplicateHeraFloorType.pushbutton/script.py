@@ -14,6 +14,7 @@ Usage:
 
 from pyrevit import revit, DB, forms
 from pyrevit.revit.db import query
+from revitfunctions.basics import mm_to_feet, feet_to_mm
 
 __title__ = "Floor Thickness Modification"
 __author__ = "Adam Shaw"
@@ -32,21 +33,22 @@ def get_selected_floors():
 def get_new_thickness(non_fold_floors):
     top_elevations = [floor.get_Parameter(DB.BuiltInParameter.STRUCTURAL_ELEVATION_AT_TOP).AsDouble() for floor in non_fold_floors]
     bottom_elevations = [floor.get_Parameter(DB.BuiltInParameter.STRUCTURAL_ELEVATION_AT_BOTTOM).AsDouble() for floor in non_fold_floors]
-    return ((max(top_elevations) - min(bottom_elevations))*304.8)
+    diff = feet_to_mm(max(top_elevations) - min(bottom_elevations))
+    return diff
 
 
 def duplicate_floor_type(floor, new_thickness):
     floor_type = floor.FloorType
     floor_name = floor.Name
     thickness_param = floor.get_Parameter(DB.BuiltInParameter.FLOOR_ATTR_THICKNESS_PARAM)
-    floor_thickness = round(thickness_param.AsDouble() * 304.8, 0)
+    floor_thickness = round(feet_to_mm(thickness_param.AsDouble()), 0)
     thickness_str = str(int(floor_thickness))
     thickness_index = floor_name.find(thickness_str)
-
+    newthickness_str = format(new_thickness,'.0f')
     if thickness_index != -1:
-        new_floor_name = floor_name[:thickness_index] + str(int(new_thickness)) + floor_name[thickness_index + len(thickness_str):]
+        new_floor_name = floor_name[:thickness_index] + newthickness_str + floor_name[thickness_index + len(thickness_str):]
     else:
-        new_floor_name = floor_name + " - " + str(int(new_thickness))
+        new_floor_name = floor_name + " - " + newthickness_str
     existing_floor_types = query.get_family_symbol("Floor", new_floor_name)
     if existing_floor_types:
         return existing_floor_types[0]
@@ -54,7 +56,7 @@ def duplicate_floor_type(floor, new_thickness):
         new_floor_type = floor_type.Duplicate(new_floor_name)
         compound_structure = new_floor_type.GetCompoundStructure()
         if compound_structure and compound_structure.LayerCount > 0:
-            compound_structure.SetLayerWidth(0, new_thickness/304.8)
+            compound_structure.SetLayerWidth(0, mm_to_feet(new_thickness))
             new_floor_type.SetCompoundStructure(compound_structure)
         return new_floor_type
 
@@ -86,7 +88,7 @@ def main():
                     forms.alert("Invalid thickness value. Please enter a valid number.")
         elif fold_floors and len(non_fold_floors) == 2:
             new_thickness = get_new_thickness(non_fold_floors)
-            with revit.Transaction("Duplicate Floor Types"):
+            with revit.Transaction("Update Fold Floor Depth"):
                 for floor in fold_floors:
                     floor.FloorType = duplicate_floor_type(floor, new_thickness)
         else:

@@ -1,4 +1,4 @@
-from Autodesk.Revit.DB import ElementTransformUtils, XYZ, BuiltInCategory, ElementId, ColumnAttachment
+from Autodesk.Revit.DB import ElementTransformUtils, XYZ, BuiltInCategory, ElementId, ColumnAttachment, UnitUtils, UnitTypeId
 from pyrevit import revit, forms
 import Autodesk.Revit.Exceptions as RevitExceptions
 
@@ -85,3 +85,30 @@ def remove_column_attachments(column):
     """
     ColumnAttachment.RemoveColumnAttachment(column,0)
     ColumnAttachment.RemoveColumnAttachment(column,1)
+
+
+def mm_to_feet(mm):
+    """
+    Convert millimeters to feet using Revit's UnitUtils.
+
+    Args:
+        mm (float): The length in millimeters.
+
+    Returns:
+        float: The length in feet.
+    """
+    feet = UnitUtils.Convert(mm, UnitTypeId.Millimeters, UnitTypeId.Feet)
+    return feet
+
+def feet_to_mm(feet):
+    """
+    Convert feet to millimeters using Revit's UnitUtils.
+
+    Args:
+        feet (float): The length in feet.
+
+    Returns:
+        float: The length in millimeters.
+    """
+    mm = UnitUtils.Convert(feet, UnitTypeId.Feet, UnitTypeId.Millimeters)
+    return mm
