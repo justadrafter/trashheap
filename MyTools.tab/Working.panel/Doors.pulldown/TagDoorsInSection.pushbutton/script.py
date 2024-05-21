@@ -13,7 +13,7 @@ def is_door_parallel_to_view(door, view):
     """Check if a door is parallel to the given view's plane."""
     door_normal = door.FacingOrientation.Normalize()
     view_normal = view.ViewDirection.CrossProduct(DB.XYZ.BasisZ).Normalize()
-    return abs(door_normal.DotProduct(view_normal)) < 1e-6
+    return abs(door_normal.DotProduct(view_normal)) < 0.01
 
 
 def tag_parallel_doors(doors, view):
