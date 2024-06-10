@@ -48,6 +48,8 @@ class Tendon:
                 sorted_types.append("HIGH")
             elif point.LookupParameter("LOW").AsInteger() == 1:
                 sorted_types.append("LOW")
+            elif point.LookupParameter("END").AsInteger() == 1:
+                sorted_types.append("END")
             else:
                 sorted_types.append("INTER")
         self.sorted_types = sorted_types
@@ -86,14 +88,14 @@ class Tendon:
     def list_primary_points(self):
         points_primary = []
         for point, type in zip(self.sorted_points, self.sorted_types):
-            if type == "HIGH" or type == "LOW":
+            if type == "HIGH" or type == "LOW" or type == "END":
                 points_primary.append(point)
         return points_primary
 
     def list_primary_point_heights(self):
         points_primary = []
         for height, type in zip(self.sorted_heights, self.sorted_types):
-            if type == "HIGH" or type == "LOW":
+            if type == "HIGH" or type == "LOW" or type == "END":
                 points_primary.append(height)
         return points_primary
 
@@ -183,13 +185,12 @@ def calculate_height_pans(distance, total_distance, height_pan, height_other):
     return f_x
 
 
-def create_detail_component(point, height, family_symbol, doc, view, type="INT"):
+def create_detail_component(point, height, family_symbol, doc, view):
     detail_component = doc.Create.NewFamilyInstance(point, family_symbol, view)
     detail_component.LookupParameter("Height").Set(height)
     detail_component.LookupParameter("HIGH").Set(0)
     detail_component.LookupParameter("LOW").Set(0)
-    if type != "INT":
-        detail_component.LookupParameter("END").Set(1)
+    detail_component.LookupParameter("END").Set(0)
     return detail_component
 
 
@@ -205,11 +206,11 @@ def rotate_detail_component(detail_component, start_point, end_point, loc):
     detail_component.Location.Rotate(line, angle)
 
 
-def create_detail_component_at_point(loc, height, family_symbol, doc, view, type="INT"):
+def create_detail_component_at_point(loc, height, family_symbol, doc, view):
     height = float(height)
     height_rounded = str(int(round(height / 5) * 5))
     detail_component = create_detail_component(
-        loc, height_rounded, family_symbol, doc, view, type
+        loc, height_rounded, family_symbol, doc, view
     )
     return detail_component
 
@@ -276,28 +277,30 @@ def get_bottom_and_top_RL(point):
 
     collector = DB.FilteredElementCollector(revit.doc, revit.doc.ActiveView.Id)
     collector.WherePasses(DB.LogicalAndFilter(CATEGORY_FILTER, bbox_filter))
+    if collector.GetElementCount() == 0:
+        return 999999.9, -999999.9
+    else:
+        transform = revit.doc.ActiveProjectLocation.GetTotalTransform().Inverse
+        curve_ends = []
 
-    transform = revit.doc.ActiveProjectLocation.GetTotalTransform().Inverse
-    curve_ends = []
+        for element in collector:
+            geo_elem = element.get_Geometry(DB.Options())
+            for geo_obj in geo_elem:
+                if isinstance(geo_obj, DB.Solid):
+                    line = DB.Line.CreateBound(
+                        point, point + DB.XYZ.BasisZ * -10000 / 304.8
+                    )
+                    intersect_options = DB.SolidCurveIntersectionOptions()
+                    intersect_result = geo_obj.IntersectWithCurve(line, intersect_options)
 
-    for element in collector:
-        geo_elem = element.get_Geometry(DB.Options())
-        for geo_obj in geo_elem:
-            if isinstance(geo_obj, DB.Solid):
-                line = DB.Line.CreateBound(
-                    point, point + DB.XYZ.BasisZ * -10000 / 304.8
-                )
-                intersect_options = DB.SolidCurveIntersectionOptions()
-                intersect_result = geo_obj.IntersectWithCurve(line, intersect_options)
+                    for i in range(intersect_result.SegmentCount):
+                        curve_segment = intersect_result.GetCurveSegment(i)
+                        curve_ends.append(transform.OfPoint(curve_segment.GetEndPoint(0)).Z)
+                        curve_ends.append(transform.OfPoint(curve_segment.GetEndPoint(1)).Z)
 
-                for i in range(intersect_result.SegmentCount):
-                    curve_segment = intersect_result.GetCurveSegment(i)
-                    curve_ends.append(transform.OfPoint(curve_segment.GetEndPoint(0)).Z)
-                    curve_ends.append(transform.OfPoint(curve_segment.GetEndPoint(1)).Z)
-
-    return min([min(curve_ends), 999999.9]) * 304.8, max(
-        [max(curve_ends), -999999.9]
-    ) * 304.8
+        return min([min(curve_ends), 999999.9]) * 304.8, max(
+            [max(curve_ends), -999999.9]
+        ) * 304.8
 
 
 def get_family_symbol(family_partial_name):
@@ -463,17 +466,17 @@ def create_tendon_heights(tendon):
         str(int(round(start_height / 5) * 5)),
         POINT_FAMILYSYMBOL,
         DOC,
-        DOC.ActiveView,
-        "END",
+        DOC.ActiveView
     )
     end_height_point = create_detail_component_at_point(
         end_point,
         str(int(round(end_height / 5) * 5)),
         POINT_FAMILYSYMBOL,
         DOC,
-        DOC.ActiveView,
-        "END",
+        DOC.ActiveView
     )
+    start_height_point.LookupParameter("END").Set(1)
+    end_height_point.LookupParameter("END").Set(1)
     return start_height_point, end_height_point
 
 
