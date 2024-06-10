@@ -1,3 +1,6 @@
+__title__ = "Extents Match"
+__author__ = "Adam Shaw"
+
 import clr
 clr.AddReference('RevitAPI')
 from Autodesk.Revit.DB import *
