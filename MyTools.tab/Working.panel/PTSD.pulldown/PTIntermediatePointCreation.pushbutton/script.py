@@ -14,7 +14,7 @@ def main():
 
     selection = revit.get_selection()
 
-    with revit.Transaction("Commenting Tendons"):
+    with revit.Transaction("Create Intermediate Tendon Heights"):
         tendon_group = renumber_all_tendons(selection)
         create_all_intermediate_points(tendon_group)
 

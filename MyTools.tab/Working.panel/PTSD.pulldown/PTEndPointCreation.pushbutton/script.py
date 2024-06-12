@@ -9,7 +9,7 @@ def main():
 
     selection = revit.get_selection()
 
-    with revit.Transaction("Commenting Tendons"):
+    with revit.Transaction("Create End Tendon Heights"):
         for x in selection:
             create_tendon_heights(x)
 

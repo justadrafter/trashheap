@@ -1,6 +1,6 @@
 import math
-from pyrevit import revit, DB, forms
-
+from pyrevit import revit, DB, forms, script
+from Autodesk.Revit.DB import XYZ, SketchPlane, Line, Plane
 
 UIDOC = revit.uidoc
 DOC = UIDOC.Document
@@ -13,6 +13,8 @@ TENDON_TYPE = "PT Tendon"
 XYTOLERANCE = 100.0 / 304.8
 ANGLETOLERANCE = 10.0 / 180 * math.pi
 
+SCRIPT_OUTPUT = script.get_output()
+ACTIVEVIEW_RL = round(DOC.ActiveView.GenLevel.ProjectElevation,2)
 
 class Tendon:
     def __init__(self, tendon_curve_elem, sorted_points, tendon_mark="0"):
@@ -145,6 +147,17 @@ class Tendon:
             )
         print("Points String: {}".format(self.points_string))
 
+def setup_collector():
+    floor_filter = DB.ElementCategoryFilter(DB.BuiltInCategory.OST_Floors)
+    framing_filter = DB.ElementCategoryFilter(DB.BuiltInCategory.OST_StructuralFraming)
+
+    rule_set_or = DB.LogicalOrFilter(floor_filter, framing_filter)
+
+    collector = DB.FilteredElementCollector(
+        revit.doc, revit.doc.ActiveView.Id
+    ).WherePasses(rule_set_or)
+    return collector
+
 
 def get_height_and_location(detail_item):
     elem_location = detail_item.Location.Point
@@ -157,8 +170,11 @@ def get_height_and_location(detail_item):
 
 def get_midheight_at_location(location_point):
     bottom_rl, top_rl = get_bottom_and_top_RL(location_point)
-    distance = (top_rl - bottom_rl) / 2
-    return distance
+    if bottom_rl == 0 and top_rl == 0:
+        return 0
+    else:
+        distance = (top_rl - bottom_rl) / 2
+        return distance
 
 
 def calculate_height(distance, total_distance, height_sp, height_ep, radius=-5000):
@@ -195,15 +211,10 @@ def create_detail_component(point, height, family_symbol, doc, view):
 
 
 def rotate_detail_component(detail_component, start_point, end_point, loc):
-    direction = (start_point - end_point).Normalize()
-    angle = DB.XYZ.BasisX.AngleTo(direction)
-    if angle < 0:
-        angle = angle % math.pi + math.pi
-    elif angle > math.pi:
-        angle = angle % math.pi - math.pi
-
+    angle = math.atan2(end_point.Y-start_point.Y,end_point.X-start_point.X)
     line = DB.Line.CreateBound(loc, loc + DB.XYZ(0, 0, 1))
     detail_component.Location.Rotate(line, angle)
+    return detail_component
 
 
 def create_detail_component_at_point(loc, height, family_symbol, doc, view):
@@ -259,48 +270,102 @@ def sort_objects_along_line(objects, start_point):
     return sorted(objects, key=distance_from_start)
 
 
+def get_line_data(line):
+    start_point_z = round(line.GetEndPoint(0).Z,2)
+    end_point_z = round(line.GetEndPoint(1).Z,2)
+    length = round(line.Length,2)
+    z_distance = abs(start_point_z- ACTIVEVIEW_RL)
+    return (line, z_distance, length, start_point_z, end_point_z)
+
 def get_bottom_and_top_RL(point):
+    bb_start_offset = 1500 / 304.8
+    bb_end_offset = 1500 / 304.8
     outline = DB.Outline(
-        DB.XYZ(point.X - 1, point.Y - 1, point.Z - 10000 / 304.8),
-        DB.XYZ(point.X + 1, point.Y + 1, point.Z + 3000 / 304.8),
+        DB.XYZ(point.X - 1, point.Y - 1, point.Z - bb_end_offset),
+        DB.XYZ(point.X + 1, point.Y + 1, point.Z + bb_start_offset),
     )
+    # test = create_model_line(DB.XYZ(point.X, point.Y, point.Z + bb_start_offset),DB.XYZ(point.X, point.Y, point.Z - bb_end_offset))
+    # print(test.Id)
+
     bbox_filter = DB.BoundingBoxIntersectsFilter(outline)
 
-    floor_filter = DB.ElementCategoryFilter(
-        DB.BuiltInCategory.OST_Floors
-    )  # need to filter out non-concrete elements
-    framing_filter = DB.ElementCategoryFilter(
-        DB.BuiltInCategory.OST_StructuralFraming
-    )  # need to filter out non-concrete elements
+    collector = setup_collector().WherePasses(bbox_filter)
 
-    CATEGORY_FILTER = DB.LogicalOrFilter(floor_filter, framing_filter)
+    names_to_filter = ["HOB", "RAMP", "KERB"]
 
-    collector = DB.FilteredElementCollector(revit.doc, revit.doc.ActiveView.Id)
-    collector.WherePasses(DB.LogicalAndFilter(CATEGORY_FILTER, bbox_filter))
+    # if collector.GetElementCount() == 0:
+    #     print("No intersecting elements found")
+    #     return 0, 0
+    # else:
+    #     transform = revit.doc.ActiveProjectLocation.GetTotalTransform().Inverse
+    #     curve_ends = []
+    #     for element in collector:
+    #         if not any(term in element.Name for term in names_to_filter):
+    #             geo_elem = element.get_Geometry(DB.Options())
+    #             for geo_obj in geo_elem:
+    #                 if isinstance(geo_obj, DB.Solid):
+    #                     line = DB.Line.CreateBound(
+    #                         point + DB.XYZ.BasisZ * 2000 / 304.8,
+    #                         point - DB.XYZ.BasisZ * 3000 / 304.8,
+    #                     )
+    #                     intersect_options = DB.SolidCurveIntersectionOptions()
+    #                     intersect_result = geo_obj.IntersectWithCurve(
+    #                         line, intersect_options
+    #                     )
+
+    #                     for i in range(intersect_result.SegmentCount):
+    #                         curve_segment = intersect_result.GetCurveSegment(i)
+    #                         curve_ends.append(
+    #                             transform.OfPoint(curve_segment.GetEndPoint(0)).Z
+    #                         )
+    #                         curve_ends.append(
+    #                             transform.OfPoint(curve_segment.GetEndPoint(1)).Z
+    #                         )
+
+    #     return min([min(curve_ends), 999999.9]) * 304.8, max(
+    #         [max(curve_ends), -999999.9]
+    #     ) * 304.8
+
+    lowest_pt, highest_pt = 0,0
+
     if collector.GetElementCount() == 0:
-        return 999999.9, -999999.9
+        print("No intersecting elements found")
     else:
         transform = revit.doc.ActiveProjectLocation.GetTotalTransform().Inverse
-        curve_ends = []
-
+        lines = []
         for element in collector:
-            geo_elem = element.get_Geometry(DB.Options())
-            for geo_obj in geo_elem:
-                if isinstance(geo_obj, DB.Solid):
-                    line = DB.Line.CreateBound(
-                        point, point + DB.XYZ.BasisZ * -10000 / 304.8
-                    )
-                    intersect_options = DB.SolidCurveIntersectionOptions()
-                    intersect_result = geo_obj.IntersectWithCurve(line, intersect_options)
+            if not any(term in element.Name for term in names_to_filter):
+                geo_elem = element.get_Geometry(DB.Options())
+                for geo_obj in geo_elem:
+                    if isinstance(geo_obj, DB.Solid):
+                        line = DB.Line.CreateBound(
+                            point + DB.XYZ.BasisZ * 2000 / 304.8,
+                            point - DB.XYZ.BasisZ * 3000 / 304.8,
+                        )
+                        intersect_options = DB.SolidCurveIntersectionOptions()
+                        intersect_result = geo_obj.IntersectWithCurve(
+                            line, intersect_options
+                        )
+                        for i in intersect_result:
+                            lines.append(i)
+        
+        if len(lines) == 1:
+            lowest_pt, highest_pt = lines[0].GetEndPoint(1).Z,lines[0].GetEndPoint(0).Z
+        else:
+            line_data = [get_line_data(line) for line in lines]
+            sorted_lines = sorted(line_data, key=lambda x: (x[1], x[2]))
+            lowest_pt = sorted_lines[0][4]
+            highest_pt = sorted_lines[0][3]
 
-                    for i in range(intersect_result.SegmentCount):
-                        curve_segment = intersect_result.GetCurveSegment(i)
-                        curve_ends.append(transform.OfPoint(curve_segment.GetEndPoint(0)).Z)
-                        curve_ends.append(transform.OfPoint(curve_segment.GetEndPoint(1)).Z)
+            for x in sorted_lines[1:]:
+                if x[3]<=highest_pt and x[3]>=lowest_pt and x[4]<lowest_pt:
+                    lowest_pt = x[4]
+                if x[3] > highest_pt and x[4] <= highest_pt:
+                    highest_pt = x[3]
 
-        return min([min(curve_ends), 999999.9]) * 304.8, max(
-            [max(curve_ends), -999999.9]
-        ) * 304.8
+        lowest_pt = transform.OfPoint(DB.XYZ(0,0,lowest_pt)).Z*304.8
+        highest_pt = transform.OfPoint(DB.XYZ(0,0,highest_pt)).Z*304.8
+    return lowest_pt, highest_pt
 
 
 def get_family_symbol(family_partial_name):
@@ -446,11 +511,23 @@ def create_all_intermediate_points(tendon_group):
 
 
 def create_tendon_heights(tendon):
+    
     start_point = get_actual_tendon_curve(tendon).GetEndPoint(0)
+    start_point = DB.XYZ(start_point.X, start_point.Y, ACTIVEVIEW_RL)
     end_point = get_actual_tendon_curve(tendon).GetEndPoint(1)
+    end_point = DB.XYZ(end_point.X, end_point.Y, ACTIVEVIEW_RL)
 
     start_height = get_midheight_at_location(start_point)
     end_height = get_midheight_at_location(end_point)
+    if start_height == 0 or end_height == 0:
+        try:
+            print(
+                "End Point Error: Tendon #",
+                tendon.LookupParameter("PT Tendon Mark").AsValueString(),
+                SCRIPT_OUTPUT.linkify(tendon.Id),
+            )
+        except:
+            print("End Point Error: ", tendon.Id)
 
     start_type = tendon.LookupParameter("Start").AsValueString()
     end_type = tendon.LookupParameter("End").AsValueString()
@@ -466,15 +543,17 @@ def create_tendon_heights(tendon):
         str(int(round(start_height / 5) * 5)),
         POINT_FAMILYSYMBOL,
         DOC,
-        DOC.ActiveView
+        DOC.ActiveView,
     )
+    start_height_point = rotate_detail_component(start_height_point, start_point, end_point, start_point)
     end_height_point = create_detail_component_at_point(
         end_point,
         str(int(round(end_height / 5) * 5)),
         POINT_FAMILYSYMBOL,
         DOC,
-        DOC.ActiveView
+        DOC.ActiveView,
     )
+    end_height_point = rotate_detail_component(end_height_point, start_point, end_point, end_point)
     start_height_point.LookupParameter("END").Set(1)
     end_height_point.LookupParameter("END").Set(1)
     return start_height_point, end_height_point
@@ -490,3 +569,14 @@ def populate_family_symbols():
     global TENDON_FAMILYSYMBOL, POINT_FAMILYSYMBOL
     TENDON_FAMILYSYMBOL = get_family_symbol("PT Tendon")
     POINT_FAMILYSYMBOL = get_family_symbol("PT Height")
+
+
+def create_model_line(start_point, end_point):
+    line = Line.CreateBound(start_point, end_point)
+    with revit.Transaction("Create Model Line"):
+        vector = XYZ.BasisX
+        origin = start_point
+        plane = Plane.CreateByNormalAndOrigin(vector, origin)
+        sketch_plane = SketchPlane.Create(DOC, plane)
+        Mcurve = DOC.Create.NewModelCurve(line, sketch_plane)
+    return Mcurve
