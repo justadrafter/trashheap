@@ -2,5 +2,9 @@
     "python.autoComplete.extraPaths": [
         
     ],
-    "python.REPL.enableREPLSmartSend": false
+    "python.REPL.enableREPLSmartSend": false,
+    "python.analysis.include": [
+        "C:\\Users\\AdamShaw\\AppData\\Roaming\\RevitAPI stubs\\RVT 24",
+        "C:\\Users\\AdamShaw\\AppData\\Roaming\\pyRevit-Master\\pyrevitlib"
+    ]
 }
