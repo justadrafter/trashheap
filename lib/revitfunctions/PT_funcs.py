@@ -186,7 +186,7 @@ def get_height_and_location(detail_item):
 
 def get_midheight_at_location(location_point):
     bottom_rl, top_rl = get_bottom_and_top_RL(location_point)
-    if bottom_rl == 0 and top_rl == 0:
+    if bottom_rl == 0 and top_rl == 0 or bottom_rl is None or top_rl is None:
         return 0
     else:
         distance = (top_rl - bottom_rl) / 2
@@ -296,59 +296,68 @@ def get_line_data(line):
 def get_bottom_and_top_RL(point):
     bb_start_offset = 1500 / 304.8
     bb_end_offset = 1500 / 304.8
-    outline = DB.Outline(
-        DB.XYZ(point.X - 1, point.Y - 1, point.Z - bb_end_offset),
-        DB.XYZ(point.X + 1, point.Y + 1, point.Z + bb_start_offset),
-    )
-    # test = create_model_line(DB.XYZ(point.X, point.Y, point.Z + bb_start_offset),DB.XYZ(point.X, point.Y, point.Z - bb_end_offset))
-    # print(test.Id)
+    try:
+        outline = DB.Outline(
+            DB.XYZ(point.X - 1, point.Y - 1, point.Z - bb_end_offset),
+            DB.XYZ(point.X + 1, point.Y + 1, point.Z + bb_start_offset),
+        )
+        # test = create_model_line(DB.XYZ(point.X, point.Y, point.Z + bb_start_offset),DB.XYZ(point.X, point.Y, point.Z - bb_end_offset))
+        # print(test.Id)
 
-    bbox_filter = DB.BoundingBoxIntersectsFilter(outline)
+        bbox_filter = DB.BoundingBoxIntersectsFilter(outline)
 
-    collector = setup_collector().WherePasses(bbox_filter)
+        collector = setup_collector().WherePasses(bbox_filter)
 
-    names_to_filter = ["HOB", "RAMP", "KERB"]
+        names_to_filter = ["HOB", "RAMP", "KERB"]
 
-    lowest_pt, highest_pt = 0,0
+        lowest_pt, highest_pt = 0,0
 
-    if collector.GetElementCount() == 0:
-        print("No intersecting elements found")
-    else:
-        transform = revit.doc.ActiveProjectLocation.GetTotalTransform().Inverse
-        lines = []
-        for element in collector:
-            if not any(term in element.Name for term in names_to_filter):
-                geo_elem = element.get_Geometry(DB.Options())
-                for geo_obj in geo_elem:
-                    if isinstance(geo_obj, DB.Solid):
-                        line = DB.Line.CreateBound(
-                            point + DB.XYZ.BasisZ * 2000 / 304.8,
-                            point - DB.XYZ.BasisZ * 3000 / 304.8,
-                        )
-                        intersect_options = DB.SolidCurveIntersectionOptions()
-                        intersect_result = geo_obj.IntersectWithCurve(
-                            line, intersect_options
-                        )
-                        for i in intersect_result:
-                            lines.append(i)
-        
-        if len(lines) == 1:
-            lowest_pt, highest_pt = lines[0].GetEndPoint(1).Z,lines[0].GetEndPoint(0).Z
+        if collector.GetElementCount() == 0:
+            SCRIPT_OUTPUT.log_debug("get_bottom_and_top_RL: Element Count is 0")
         else:
-            line_data = [get_line_data(line) for line in lines]
-            sorted_lines = sorted(line_data, key=lambda x: (x[1], x[2]))
-            lowest_pt = sorted_lines[0][4]
-            highest_pt = sorted_lines[0][3]
+            transform = revit.doc.ActiveProjectLocation.GetTotalTransform().Inverse
+            lines = []
+            for element in collector:
+                if not any(term in element.Name for term in names_to_filter):
+                    geo_elem = element.get_Geometry(DB.Options())
+                    for geo_obj in geo_elem:
+                        if isinstance(geo_obj, DB.Solid):
+                            line = DB.Line.CreateBound(
+                                point + DB.XYZ.BasisZ * 2000 / 304.8,
+                                point - DB.XYZ.BasisZ * 3000 / 304.8,
+                            )
+                            intersect_options = DB.SolidCurveIntersectionOptions()
+                            intersect_result = geo_obj.IntersectWithCurve(
+                                line, intersect_options
+                            )
+                            if intersect_result.SegmentCount > 0:
+                                for i in intersect_result:
+                                    lines.append(i)
+                                
+            if len(lines) <1:
+                lowest_pt, highest_pt = None,None
+                SCRIPT_OUTPUT.log_debug("get_bottom_and_top_RL: No solid curve intersecting lines found")
+            else:
+                if len(lines) == 1:
+                    lowest_pt, highest_pt = lines[0].GetEndPoint(1).Z,lines[0].GetEndPoint(0).Z
+                else:
+                    line_data = [get_line_data(line) for line in lines]
+                    sorted_lines = sorted(line_data, key=lambda x: (x[1], x[2]))
+                    lowest_pt = sorted_lines[0][4]
+                    highest_pt = sorted_lines[0][3]
 
-            for x in sorted_lines[1:]:
-                if x[3]<=highest_pt and x[3]>=lowest_pt and x[4]<lowest_pt:
-                    lowest_pt = x[4]
-                if x[3] > highest_pt and x[4] <= highest_pt:
-                    highest_pt = x[3]
+                    for x in sorted_lines[1:]:
+                        if x[3]<=highest_pt and x[3]>=lowest_pt and x[4]<lowest_pt:
+                            lowest_pt = x[4]
+                        if x[3] > highest_pt and x[4] <= highest_pt:
+                            highest_pt = x[3]
 
-        lowest_pt = transform.OfPoint(DB.XYZ(0,0,lowest_pt)).Z*304.8
-        highest_pt = transform.OfPoint(DB.XYZ(0,0,highest_pt)).Z*304.8
-    return lowest_pt, highest_pt
+                lowest_pt = transform.OfPoint(DB.XYZ(0,0,lowest_pt)).Z*304.8
+                highest_pt = transform.OfPoint(DB.XYZ(0,0,highest_pt)).Z*304.8
+        return lowest_pt, highest_pt
+    except Exception as e:
+        print("An error occurred: {}".format(e))
+        return None, None
 
 
 def get_family_symbol(family_partial_name):
@@ -505,9 +514,9 @@ def create_tendon_heights(tendon):
     if start_height == 0 or end_height == 0:
         try:
             print(
-                "End Point Error: Tendon #",
+                "End Point Error: Tendon #" + 
                 tendon.LookupParameter("PT Tendon Mark").AsValueString(),
-                SCRIPT_OUTPUT.linkify(tendon.Id),
+                SCRIPT_OUTPUT.linkify(tendon.Id)
             )
         except:
             print("End Point Error: ", tendon.Id)
