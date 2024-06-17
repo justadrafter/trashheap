@@ -1,6 +1,8 @@
 import math
+import json
 from pyrevit import revit, DB, forms, script
 from Autodesk.Revit.DB import XYZ, SketchPlane, Line, Plane
+
 
 UIDOC = revit.uidoc
 DOC = UIDOC.Document
@@ -42,6 +44,20 @@ class Tendon:
         self.assign_point_types()  # High,Low,Inter
         self.assign_points_string()  # Point heights of low/high as a string 'Id'
         self.assign_points_distances()  # Distances between low/high heights
+
+    def store_data(self):
+        data_tendon = {}
+        data_tendon["mark"] = self.mark
+        data_tendon["start_point"] = self.start_point
+        data_tendon["end_point"] = self.end_point
+        data_tendon["start_height"] = self.start_height
+        data_tendon["end_height"] = self.end_height
+        data_tendon["start_type"] = self.start_type
+        data_tendon["end_type"] = self.end_type
+
+        data_points = []
+        for point in self.sorted_points:
+            data_points.append(point.Id)
 
     def assign_point_types(self):
         sorted_types = []
@@ -292,39 +308,6 @@ def get_bottom_and_top_RL(point):
     collector = setup_collector().WherePasses(bbox_filter)
 
     names_to_filter = ["HOB", "RAMP", "KERB"]
-
-    # if collector.GetElementCount() == 0:
-    #     print("No intersecting elements found")
-    #     return 0, 0
-    # else:
-    #     transform = revit.doc.ActiveProjectLocation.GetTotalTransform().Inverse
-    #     curve_ends = []
-    #     for element in collector:
-    #         if not any(term in element.Name for term in names_to_filter):
-    #             geo_elem = element.get_Geometry(DB.Options())
-    #             for geo_obj in geo_elem:
-    #                 if isinstance(geo_obj, DB.Solid):
-    #                     line = DB.Line.CreateBound(
-    #                         point + DB.XYZ.BasisZ * 2000 / 304.8,
-    #                         point - DB.XYZ.BasisZ * 3000 / 304.8,
-    #                     )
-    #                     intersect_options = DB.SolidCurveIntersectionOptions()
-    #                     intersect_result = geo_obj.IntersectWithCurve(
-    #                         line, intersect_options
-    #                     )
-
-    #                     for i in range(intersect_result.SegmentCount):
-    #                         curve_segment = intersect_result.GetCurveSegment(i)
-    #                         curve_ends.append(
-    #                             transform.OfPoint(curve_segment.GetEndPoint(0)).Z
-    #                         )
-    #                         curve_ends.append(
-    #                             transform.OfPoint(curve_segment.GetEndPoint(1)).Z
-    #                         )
-
-    #     return min([min(curve_ends), 999999.9]) * 304.8, max(
-    #         [max(curve_ends), -999999.9]
-    #     ) * 304.8
 
     lowest_pt, highest_pt = 0,0
 
