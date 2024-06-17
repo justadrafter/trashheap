@@ -16,7 +16,8 @@ XYTOLERANCE = 100.0 / 304.8
 ANGLETOLERANCE = 10.0 / 180 * math.pi
 
 SCRIPT_OUTPUT = script.get_output()
-ACTIVEVIEW_RL = round(DOC.ActiveView.GenLevel.ProjectElevation,2)
+ACTIVEVIEW_RL = round(DOC.ActiveView.GenLevel.ProjectElevation, 2)
+
 
 class Tendon:
     def __init__(self, tendon_curve_elem, sorted_points, tendon_mark="0"):
@@ -120,14 +121,30 @@ class Tendon:
     def create_intermediate_points(self):
         prim_points = self.list_primary_points()
         for idx in range(len(prim_points) - 1):
-            start_height = (
-                float(self.sorted_heights[idx])
-                + get_bottom_and_top_RL(prim_points[idx].Location.Point)[0]
-            )
-            end_height = (
-                float(self.sorted_heights[idx + 1])
-                + get_bottom_and_top_RL(prim_points[idx + 1].Location.Point)[0]
-            )
+            error = False
+            start_bottom = get_bottom_and_top_RL(prim_points[idx].Location.Point)[0]
+            if start_bottom is None:
+                start_bottom = 999999
+                SCRIPT_OUTPUT.log_debug(
+                    "create_intermediate_points: Bottom RL is None for point"
+                )
+                error = True
+            start_height = float(self.sorted_heights[idx]) + start_bottom
+            end_bottom = get_bottom_and_top_RL(prim_points[idx + 1].Location.Point)[0]
+            if end_bottom is None:
+                end_bottom = 999999
+                SCRIPT_OUTPUT.log_debug(
+                    "create_intermediate_points: Top RL is None for point"
+                )
+                error = True
+            end_height = float(self.sorted_heights[idx + 1]) + end_bottom
+            if error:
+                print("Primary point heights seem wrong for this tendon: ", SCRIPT_OUTPUT.linkify(self.curve_elem.Id))
+                init_comment = self.curve_elem.LookupParameter("Comments").AsString()
+                if init_comment is None:
+                    init_comment = ""
+                init_comment += " RED"
+                self.curve_elem.LookupParameter("Comments").Set(init_comment)
             create_components_between_points(
                 prim_points[idx].Location.Point,
                 start_height,
@@ -163,6 +180,7 @@ class Tendon:
             )
         print("Points String: {}".format(self.points_string))
 
+
 def setup_collector():
     floor_filter = DB.ElementCategoryFilter(DB.BuiltInCategory.OST_Floors)
     framing_filter = DB.ElementCategoryFilter(DB.BuiltInCategory.OST_StructuralFraming)
@@ -187,7 +205,7 @@ def get_height_and_location(detail_item):
 def get_midheight_at_location(location_point):
     bottom_rl, top_rl = get_bottom_and_top_RL(location_point)
     if bottom_rl == 0 and top_rl == 0 or bottom_rl is None or top_rl is None:
-        return 0
+        return 9999999
     else:
         distance = (top_rl - bottom_rl) / 2
         return distance
@@ -198,7 +216,7 @@ def calculate_height(distance, total_distance, height_sp, height_ep, radius=-500
         height_sp, height_ep = height_ep, height_sp
         distance = total_distance - distance
 
-    if height_ep - height_sp != 0:
+    if abs(height_ep - height_sp) > 2:
         g_x = (
             distance**2 / (2 * radius + total_distance**2 / (height_ep - height_sp))
             + height_sp
@@ -207,6 +225,7 @@ def calculate_height(distance, total_distance, height_sp, height_ep, radius=-500
         g_x = height_sp
     h_x = (distance - total_distance) ** 2 / (2 * radius) + height_ep
     infl_x = (height_ep - height_sp) / (radius * total_distance) + total_distance
+
     return g_x if distance <= infl_x else h_x
 
 
@@ -227,7 +246,7 @@ def create_detail_component(point, height, family_symbol, doc, view):
 
 
 def rotate_detail_component(detail_component, start_point, end_point, loc):
-    angle = math.atan2(end_point.Y-start_point.Y,end_point.X-start_point.X)
+    angle = math.atan2(end_point.Y - start_point.Y, end_point.X - start_point.X)
     line = DB.Line.CreateBound(loc, loc + DB.XYZ(0, 0, 1))
     detail_component.Location.Rotate(line, angle)
     return detail_component
@@ -256,15 +275,24 @@ def create_components_between_points(
     num_points = max(1, int(round(distance_mm / spacing)))
     actual_cts = round(distance_mm / num_points, 0)
     location_diff = end_point - start_point
-
+    if abs(start_height - end_height) > 10000:
+        SCRIPT_OUTPUT.log_debug(
+            "create_components_between_points: Start and End Height difference is greater than 10000"
+        )
+    point_list = []
     with revit.Transaction("Create Detail Components"):
         for point in range(1, num_points):
+            error = False
             distance = point * actual_cts
             actual_height = calculate_height(
                 distance, distance_mm, start_height, end_height
             )
             loc = start_point + location_diff * point / num_points
-            height = actual_height - get_bottom_and_top_RL(loc)[0]
+            bottom_rl = get_bottom_and_top_RL(loc)[0]
+            if bottom_rl is None:
+                bottom_rl = 999999
+                error = True
+            height = actual_height - bottom_rl
             detail_component = create_detail_component_at_point(
                 loc,
                 height,
@@ -272,7 +300,20 @@ def create_components_between_points(
                 doc,
                 view,
             )
-            rotate_detail_component(detail_component, start_point, end_point, loc)
+            rotated_component = rotate_detail_component(
+                detail_component, start_point, end_point, loc
+            )
+            point_list.append(rotated_component)
+            if error:
+                rotated_component.LookupParameter("Comments").Set("RED")
+                SCRIPT_OUTPUT.log_debug(
+                    "create_components_between_points: bottom RL incorrect value"
+                )
+                print(
+                    "Intermediate Point height error: ",
+                    SCRIPT_OUTPUT.linkify(rotated_component.Id),
+                )
+    return point_list
 
 
 def find_farthest_point(points, start_point):
@@ -287,11 +328,12 @@ def sort_objects_along_line(objects, start_point):
 
 
 def get_line_data(line):
-    start_point_z = round(line.GetEndPoint(0).Z,2)
-    end_point_z = round(line.GetEndPoint(1).Z,2)
-    length = round(line.Length,2)
-    z_distance = abs(start_point_z- ACTIVEVIEW_RL)
+    start_point_z = round(line.GetEndPoint(0).Z, 2)
+    end_point_z = round(line.GetEndPoint(1).Z, 2)
+    length = round(line.Length, 2)
+    z_distance = abs(start_point_z - ACTIVEVIEW_RL)
     return (line, z_distance, length, start_point_z, end_point_z)
+
 
 def get_bottom_and_top_RL(point):
     bb_start_offset = 1500 / 304.8
@@ -310,7 +352,7 @@ def get_bottom_and_top_RL(point):
 
         names_to_filter = ["HOB", "RAMP", "KERB"]
 
-        lowest_pt, highest_pt = 0,0
+        lowest_pt, highest_pt = 0, 0
 
         if collector.GetElementCount() == 0:
             SCRIPT_OUTPUT.log_debug("get_bottom_and_top_RL: Element Count is 0")
@@ -333,13 +375,18 @@ def get_bottom_and_top_RL(point):
                             if intersect_result.SegmentCount > 0:
                                 for i in intersect_result:
                                     lines.append(i)
-                                
-            if len(lines) <1:
-                lowest_pt, highest_pt = None,None
-                SCRIPT_OUTPUT.log_debug("get_bottom_and_top_RL: No solid curve intersecting lines found")
+
+            if len(lines) < 1:
+                lowest_pt, highest_pt = None, None
+                SCRIPT_OUTPUT.log_debug(
+                    "get_bottom_and_top_RL: No solid curve intersecting lines found"
+                )
             else:
                 if len(lines) == 1:
-                    lowest_pt, highest_pt = lines[0].GetEndPoint(1).Z,lines[0].GetEndPoint(0).Z
+                    lowest_pt, highest_pt = (
+                        lines[0].GetEndPoint(1).Z,
+                        lines[0].GetEndPoint(0).Z,
+                    )
                 else:
                     line_data = [get_line_data(line) for line in lines]
                     sorted_lines = sorted(line_data, key=lambda x: (x[1], x[2]))
@@ -347,13 +394,17 @@ def get_bottom_and_top_RL(point):
                     highest_pt = sorted_lines[0][3]
 
                     for x in sorted_lines[1:]:
-                        if x[3]<=highest_pt and x[3]>=lowest_pt and x[4]<lowest_pt:
+                        if (
+                            x[3] <= highest_pt
+                            and x[3] >= lowest_pt
+                            and x[4] < lowest_pt
+                        ):
                             lowest_pt = x[4]
                         if x[3] > highest_pt and x[4] <= highest_pt:
                             highest_pt = x[3]
 
-                lowest_pt = transform.OfPoint(DB.XYZ(0,0,lowest_pt)).Z*304.8
-                highest_pt = transform.OfPoint(DB.XYZ(0,0,highest_pt)).Z*304.8
+                lowest_pt = transform.OfPoint(DB.XYZ(0, 0, lowest_pt)).Z * 304.8
+                highest_pt = transform.OfPoint(DB.XYZ(0, 0, highest_pt)).Z * 304.8
         return lowest_pt, highest_pt
     except Exception as e:
         print("An error occurred: {}".format(e))
@@ -503,31 +554,39 @@ def create_all_intermediate_points(tendon_group):
 
 
 def create_tendon_heights(tendon):
-    
     start_point = get_actual_tendon_curve(tendon).GetEndPoint(0)
     start_point = DB.XYZ(start_point.X, start_point.Y, ACTIVEVIEW_RL)
     end_point = get_actual_tendon_curve(tendon).GetEndPoint(1)
     end_point = DB.XYZ(end_point.X, end_point.Y, ACTIVEVIEW_RL)
+    temp_start_comment = ""
+    temp_end_comment = ""
 
     start_height = get_midheight_at_location(start_point)
     end_height = get_midheight_at_location(end_point)
-    if start_height == 0 or end_height == 0:
-        try:
-            print(
-                "End Point Error: Tendon #" + 
-                tendon.LookupParameter("PT Tendon Mark").AsValueString(),
-                SCRIPT_OUTPUT.linkify(tendon.Id)
-            )
-        except:
-            print("End Point Error: ", tendon.Id)
+    if abs(start_height) > 3000:
+        print(
+            "Start Point Error: Tendon #"
+            + tendon.LookupParameter("PT Tendon Mark").AsValueString(),
+            SCRIPT_OUTPUT.linkify(tendon.Id),
+        )
+        temp_start_comment = "RED"
+        start_height = 9999999
+    elif abs(end_height) > 3000:
+        print(
+            "End Point Error: Tendon #"
+            + tendon.LookupParameter("PT Tendon Mark").AsValueString(),
+            SCRIPT_OUTPUT.linkify(tendon.Id),
+        )
+        temp_end_comment = "RED"
+        end_height = 9999999
+    else:
+        start_type = tendon.LookupParameter("Start").AsValueString()
+        end_type = tendon.LookupParameter("End").AsValueString()
 
-    start_type = tendon.LookupParameter("Start").AsValueString()
-    end_type = tendon.LookupParameter("End").AsValueString()
-
-    if start_type == "Pan End":
-        start_height = (start_height * 2) - 80
-    elif end_type == "Pan End":
-        end_height = (end_height * 2) - 80
+        if start_type == "Pan End":
+            start_height = (start_height * 2) - 80
+        elif end_type == "Pan End":
+            end_height = (end_height * 2) - 80
 
     # Create tendon points at the ends
     start_height_point = create_detail_component_at_point(
@@ -537,7 +596,9 @@ def create_tendon_heights(tendon):
         DOC,
         DOC.ActiveView,
     )
-    start_height_point = rotate_detail_component(start_height_point, start_point, end_point, start_point)
+    start_height_point = rotate_detail_component(
+        start_height_point, start_point, end_point, start_point
+    )
     end_height_point = create_detail_component_at_point(
         end_point,
         str(int(round(end_height / 5) * 5)),
@@ -545,9 +606,13 @@ def create_tendon_heights(tendon):
         DOC,
         DOC.ActiveView,
     )
-    end_height_point = rotate_detail_component(end_height_point, start_point, end_point, end_point)
+    end_height_point = rotate_detail_component(
+        end_height_point, start_point, end_point, end_point
+    )
     start_height_point.LookupParameter("END").Set(1)
     end_height_point.LookupParameter("END").Set(1)
+    start_height_point.LookupParameter("Comments").Set(temp_start_comment)
+    end_height_point.LookupParameter("Comments").Set(temp_end_comment)
     return start_height_point, end_height_point
 
 
