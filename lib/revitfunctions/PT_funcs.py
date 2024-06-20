@@ -1,22 +1,24 @@
 import math
-import json
 from pyrevit import revit, DB, forms, script
 from Autodesk.Revit.DB import XYZ, SketchPlane, Line, Plane
 
 
+# Global revit/pyrevit variables
 UIDOC = revit.uidoc
 DOC = UIDOC.Document
+SCRIPT_OUTPUT = script.get_output()
+ACTIVEVIEW_RL = round(DOC.ActiveView.GenLevel.ProjectElevation, 2)
 
+# Family Symbol Naming
 POINT_FAMILYSYMBOL = "PT Height_HERA"
 POINT_TYPE = "PT Height"
 TENDON_FAMILYSYMBOL = "PT Tendon_HERA"
 TENDON_TYPE = "PT Tendon"
 
-XYTOLERANCE = 100.0 / 304.8
-ANGLETOLERANCE = 10.0 / 180 * math.pi
-
-SCRIPT_OUTPUT = script.get_output()
-ACTIVEVIEW_RL = round(DOC.ActiveView.GenLevel.ProjectElevation, 2)
+# Tolerances
+XYTOLERANCE = 100.0 / 304.8  # 100mm
+ANGLETOLERANCE = 10.0 / 180 * math.pi  # 10 DEG
+BOTTOMCOVER = 30  # 30mm
 
 
 class Tendon:
@@ -41,12 +43,13 @@ class Tendon:
         self.sorted_heights = [
             pt.LookupParameter("Height").AsValueString() for pt in sorted_points
         ]
+        self.sorted_RLs = []
         self.assign_point_marks()  # Id
         self.assign_point_types()  # High,Low,Inter
         self.assign_points_string()  # Point heights of low/high as a string 'Id'
         self.assign_points_distances()  # Distances between low/high heights
 
-    def store_data(self):
+    def store_tendon_data(self):
         data_tendon = {}
         data_tendon["mark"] = self.mark
         data_tendon["start_point"] = self.start_point
@@ -118,6 +121,17 @@ class Tendon:
                 points_primary.append(height)
         return points_primary
 
+    # def get_points_RLs(self):
+    #     prim_points = self.list_primary_points()
+    #     for point in prim_points:
+    #         bottom_RL = get_bottom_and_top_RL(point.Location.Point)[0]
+    #         if bottom_RL is None:
+    #             bottom_RL = 999999
+    #             SCRIPT_OUTPUT.log_debug(
+    #                 "create_intermediate_points: start soffit RL is incorrect"
+    #             )
+    #         self.sorted_RLs.append(bottom_RL)
+
     def create_intermediate_points(self):
         prim_points = self.list_primary_points()
         for idx in range(len(prim_points) - 1):
@@ -126,7 +140,7 @@ class Tendon:
             if start_bottom is None:
                 start_bottom = 999999
                 SCRIPT_OUTPUT.log_debug(
-                    "create_intermediate_points: Bottom RL is None for point"
+                    "create_intermediate_points: start soffit RL is incorrect"
                 )
                 error = True
             start_height = float(self.sorted_heights[idx]) + start_bottom
@@ -134,12 +148,15 @@ class Tendon:
             if end_bottom is None:
                 end_bottom = 999999
                 SCRIPT_OUTPUT.log_debug(
-                    "create_intermediate_points: Top RL is None for point"
+                    "create_intermediate_points: end soffit RL is incorrect"
                 )
                 error = True
             end_height = float(self.sorted_heights[idx + 1]) + end_bottom
             if error:
-                print("Primary point heights seem wrong for this tendon: ", SCRIPT_OUTPUT.linkify(self.curve_elem.Id))
+                print(
+                    "Primary point heights seem wrong for this tendon: ",
+                    SCRIPT_OUTPUT.linkify(self.curve_elem.Id),
+                )
                 init_comment = self.curve_elem.LookupParameter("Comments").AsString()
                 if init_comment is None:
                     init_comment = ""
@@ -193,13 +210,13 @@ def setup_collector():
     return collector
 
 
-def get_height_and_location(detail_item):
-    elem_location = detail_item.Location.Point
-    height_param = (
-        round(float(detail_item.LookupParameter("Height").AsValueString()), 0)
-        + get_bottom_and_top_RL(detail_item.Location.Point)[0]
-    )
-    return height_param, elem_location
+# def get_height_and_location(detail_item):
+#     elem_location = detail_item.Location.Point
+#     height_param = (
+#         round(float(detail_item.LookupParameter("Height").AsValueString()), 0)
+#         + get_bottom_and_top_RL(detail_item.Location.Point)[0]
+#     )
+#     return height_param, elem_location
 
 
 def get_midheight_at_location(location_point):
@@ -215,18 +232,34 @@ def calculate_height(distance, total_distance, height_sp, height_ep, radius=-500
     if height_sp > height_ep:
         height_sp, height_ep = height_ep, height_sp
         distance = total_distance - distance
-
+    # print("distance: {}".format(distance))
+    # print("total_distance: {}".format(total_distance))
+    # print("height_sp: {}".format(height_sp))
+    # print("height_ep: {}".format(height_ep))
+    # print("radius: {}".format(radius))
     if abs(height_ep - height_sp) > 2:
         g_x = (
             distance**2 / (2 * radius + total_distance**2 / (height_ep - height_sp))
             + height_sp
         )
+        h_x = (distance - total_distance) ** 2 / (2 * radius) + height_ep
     else:
-        g_x = height_sp
-    h_x = (distance - total_distance) ** 2 / (2 * radius) + height_ep
-    infl_x = (height_ep - height_sp) / (radius * total_distance) + total_distance
+        g_x, h_x = height_sp, height_sp
 
-    return g_x if distance <= infl_x else h_x
+    infl_x = calculate_inflection(total_distance, height_sp, height_ep, radius)
+    finalval = g_x if distance <= infl_x else h_x
+    # print("g_x: {}".format(g_x))
+    # print("h_x: {}".format(h_x))
+    # print("infl_x: {}".format(infl_x))
+    # print("finalval: {}".format(finalval))
+    return finalval
+
+
+def calculate_inflection(total_distance, height_sp, height_ep, radius=-5000):
+    # print("total_distance: {}".format(total_distance))
+    # print("height_sp: {}".format(height_sp))
+    # print("height_ep: {}".format(height_ep))
+    return 2 * (height_ep - height_sp) / total_distance * radius + total_distance
 
 
 def calculate_height_pans(distance, total_distance, height_pan, height_other):
@@ -280,9 +313,9 @@ def create_components_between_points(
             "create_components_between_points: Start and End Height difference is greater than 10000"
         )
     point_list = []
+    errors = []
     with revit.Transaction("Create Detail Components"):
         for point in range(1, num_points):
-            error = False
             distance = point * actual_cts
             actual_height = calculate_height(
                 distance, distance_mm, start_height, end_height
@@ -291,8 +324,10 @@ def create_components_between_points(
             bottom_rl = get_bottom_and_top_RL(loc)[0]
             if bottom_rl is None:
                 bottom_rl = 999999
-                error = True
+                errors.append("Bottom RL is None")
             height = actual_height - bottom_rl
+            if height < BOTTOMCOVER:
+                errors.append("Height is less than BOTTOMCOVER")
             detail_component = create_detail_component_at_point(
                 loc,
                 height,
@@ -304,11 +339,10 @@ def create_components_between_points(
                 detail_component, start_point, end_point, loc
             )
             point_list.append(rotated_component)
-            if error:
+            if len(errors) > 0:
                 rotated_component.LookupParameter("Comments").Set("RED")
-                SCRIPT_OUTPUT.log_debug(
-                    "create_components_between_points: bottom RL incorrect value"
-                )
+                for error in errors:
+                    SCRIPT_OUTPUT.log_debug(error)
                 print(
                     "Intermediate Point height error: ",
                     SCRIPT_OUTPUT.linkify(rotated_component.Id),
