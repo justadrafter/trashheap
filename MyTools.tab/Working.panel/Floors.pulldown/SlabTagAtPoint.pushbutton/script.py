@@ -35,15 +35,19 @@ def main():
     view = doc.ActiveView
 
     try:
-        slab_filter = SlabSelectionFilter()
-        ref = uidoc.Selection.PickObject(UI.Selection.ObjectType.PointOnElement, slab_filter,
-                                         "Select a point on a slab element")
-        floor = doc.GetElement(ref.ElementId)
-        point = ref.GlobalPoint
+        while True:
+            try:
+                slab_filter = SlabSelectionFilter()
+                ref = uidoc.Selection.PickObject(UI.Selection.ObjectType.PointOnElement, slab_filter,
+                                                 "Select a point on a slab element")
+                floor = doc.GetElement(ref.ElementId)
+                point = ref.GlobalPoint
 
-        with revit.Transaction("Create Floor Tag"):
-            if not create_floor_tag(doc, view, floor, point):
-                UI.TaskDialog.Show("Error", "Failed to create floor tag.")
+                with revit.Transaction("Create Floor Tag"):
+                    if not create_floor_tag(doc, view, floor, point):
+                        UI.TaskDialog.Show("Error", "Failed to create floor tag.")
+            except Exceptions.OperationCanceledException:
+                break
 
     except Exceptions.OperationCanceledException:
         UI.TaskDialog.Show("Cancelled", "Floor tag creation cancelled.")

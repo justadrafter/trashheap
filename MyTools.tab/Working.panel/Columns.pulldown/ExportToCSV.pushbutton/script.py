@@ -37,6 +37,7 @@ def get_column_info(column):
     """
     info = {
         "GUID": column.UniqueId,
+        "ID": column.Id,
         "Column Mark No": column.LookupParameter("Column Mark No").AsString(),
         "X": round(column.Location.Point.X * 304.8, 2),
         "Y": round(column.Location.Point.Y * 304.8, 2),
@@ -130,6 +131,7 @@ def main():
     with open(csv_file_path, "wb") as csv_file:
         fieldnames = [
             "GUID",
+            "ID",
             "Column Mark No",
             "X",
             "Y",
