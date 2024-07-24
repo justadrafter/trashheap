@@ -61,6 +61,12 @@ def get_column_info(column):
             * 304.8,
             2,
         ),
+        "Bottom Level": column.Document.GetElement(
+            column.LookupParameter("Base Level").AsElementId()
+        ).Name,
+        "Top Level": column.Document.GetElement(
+            column.LookupParameter("Top Level").AsElementId()
+        ).Name,
         "Type Name": column.Symbol.Family.Name,
         "Shape": "Rectangle"
         if "rectangular" in column.Symbol.Family.Name.lower()
@@ -137,6 +143,8 @@ def main():
             "Y",
             "Z Base",
             "Z Top",
+            "Bottom Level",
+            "Top Level",
             "Type Name",
             "Shape",
             "B",
