@@ -75,7 +75,7 @@ def process_csv_file(file_path):
                     with revit.Transaction("Create PT_Height Family Instance"):
                         pt_height_family_symbol = query.get_family_symbol(
                             "PT Height_HERA", "PT Height_HERA", doc
-                        )
+                        )[0]
                         pt_height = create_detail_component(
                             point, height, pt_height_family_symbol, doc, view
                         )
