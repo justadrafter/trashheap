@@ -69,23 +69,22 @@ def process_csv_file(file_path):
 
                 elif element_type == "Point":
                     point = prXYZ(row[1], row[2])
-                    height = float(row[3])
+                    height = str(row[3])
                     low_high = row[5]
 
                     with revit.Transaction("Create PT_Height Family Instance"):
                         pt_height_family_symbol = query.get_family_symbol(
                             "PT Height_HERA", "PT Height_HERA", doc
-                        )[0]
-                        pt_height = create_detail_component(
-                            point, height, pt_height_family_symbol, doc, view
                         )
+                        pt_height = doc.Create.NewFamilyInstance(point, pt_height_family_symbol[0], view)
+                        pt_height.LookupParameter("Height").Set(height)
                         if pt_height:
                             rotate_detail_component(
                                 pt_height,
                                 current_start_point,
                                 current_end_point,
                                 point,
-                                adjust_rotation=True,
+                                # adjust_rotation=True,
                             )
                             pt_height.LookupParameter("LOW").Set(
                                 1 if low_high == "Low" else 0
