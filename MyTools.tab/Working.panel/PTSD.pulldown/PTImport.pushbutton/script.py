@@ -10,18 +10,18 @@ uidoc = revit.uidoc
 doc = uidoc.Document
 view = doc.ActiveView
 
-# Get Revit version
-revit_version = doc.Application.VersionNumber
 
 def prXYZ(x, y, z=None):
     if z is None:
         z = view.GenLevel.ProjectElevation
     return DB.XYZ(float(x) / 304.8, float(y) / 304.8, z)
 
+
 def process_csv_file(file_path):
     with revit.TransactionGroup("Import PT CSV"):
         with open(file_path, "r") as csvfile:
             csv_reader = csv.reader(csvfile)
+            # current_tendon = None
             current_start_point = None
             current_end_point = None
 
@@ -29,6 +29,7 @@ def process_csv_file(file_path):
                 element_type = row[0]
 
                 if element_type == "Tendon":
+                    # current_tendon = row
                     current_start_point = prXYZ(row[1], row[2])
                     current_end_point = prXYZ(row[3], row[4])
                     comment = row[5]
@@ -41,14 +42,9 @@ def process_csv_file(file_path):
                             "PT Tendon_HERA", "PT Tendon_HERA", doc
                         )
                         if family_symbol:
-                            if revit_version.startswith('2022'):
-                                detail_component = doc.Create.NewFamilyInstance(
-                                    line, family_symbol[0], view
-                                )
-                            else:
-                                detail_component = doc.Create.NewFamilyInstance(
-                                    line, family_symbol[0], view, DB.Structure.StructuralType.NonStructural
-                                )
+                            detail_component = doc.Create.NewFamilyInstance(
+                                line, family_symbol[0], view
+                            )
                             detail_component.LookupParameter("Comments").Set(comment)
 
                 elif element_type == "End" or element_type == "Start":
