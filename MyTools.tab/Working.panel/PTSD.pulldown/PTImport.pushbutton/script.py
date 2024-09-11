@@ -11,7 +11,7 @@ doc = uidoc.Document
 view = doc.ActiveView
 
 # Get Revit version
-revit_version = int(revit.version.split('.')[0])
+revit_version = doc.Application.VersionNumber.ToString()
 
 def prXYZ(x, y, z=None):
     if z is None:
@@ -41,7 +41,7 @@ def process_csv_file(file_path):
                             "PT Tendon_HERA", "PT Tendon_HERA", doc
                         )
                         if family_symbol:
-                            if revit_version >= 2022:
+                            if revit_version.startswith('2022'):
                                 detail_component = doc.Create.NewFamilyInstance(
                                     line, family_symbol[0], view
                                 )
