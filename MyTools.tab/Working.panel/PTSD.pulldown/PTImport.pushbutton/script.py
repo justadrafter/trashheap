@@ -73,8 +73,11 @@ def process_csv_file(file_path):
                     low_high = row[5]
 
                     with revit.Transaction("Create PT_Height Family Instance"):
+                        pt_height_family_symbol = query.get_family_symbol(
+                            "PT Height_HERA", "PT Height_HERA", doc
+                        )
                         pt_height = create_detail_component(
-                            point, height, "PT Height_HERA", doc, view
+                            point, height, pt_height_family_symbol, doc, view
                         )
                         if pt_height:
                             rotate_detail_component(
