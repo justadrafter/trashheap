@@ -11,7 +11,7 @@ doc = uidoc.Document
 view = doc.ActiveView
 
 # Get Revit version
-revit_version = doc.Application.VersionNumber.ToString()
+revit_version = doc.Application.VersionNumber
 
 def prXYZ(x, y, z=None):
     if z is None:
