@@ -1,7 +1,6 @@
 import csv
 from pyrevit import revit, DB, forms
-from pyrevit.revit.db import query
-from revitfunctions.PT_funcs import create_detail_component, rotate_detail_component
+from revitfunctions.PT_funcs import get_family_symbol, rotate_detail_component
 
 __title__ = "Import PT CSV"
 __author__ = "Adam Shaw"
@@ -16,6 +15,13 @@ def prXYZ(x, y, z=None):
         z = view.GenLevel.ProjectElevation
     return DB.XYZ(float(x) / 304.8, float(y) / 304.8, z)
 
+def get_text_note_type_by_partial_name(partial_name):
+    text_note_types = DB.FilteredElementCollector(doc).OfClass(DB.TextNoteType).ToElements()
+    for text_note_type in text_note_types:
+        if partial_name in text_note_type.get_Parameter(DB.BuiltInParameter.SYMBOL_NAME_PARAM).AsString():
+            return text_note_type
+    return None
+
 
 def process_csv_file(file_path):
     with revit.TransactionGroup("Import PT CSV"):
@@ -24,6 +30,10 @@ def process_csv_file(file_path):
             # current_tendon = None
             current_start_point = None
             current_end_point = None
+
+            pt_tendon_family_symbol = get_family_symbol("PT Tendon_HERA")
+            pt_height_family_symbol = get_family_symbol("PT Height_HERA")
+            text_note_family_symbol = get_text_note_type_by_partial_name("T30")
 
             for row in csv_reader:
                 element_type = row[0]
@@ -38,12 +48,10 @@ def process_csv_file(file_path):
                         line = DB.Line.CreateBound(
                             current_start_point, current_end_point
                         )
-                        family_symbol = query.get_family_symbol(
-                            "PT Tendon_HERA", "PT Tendon_HERA", doc
-                        )
-                        if family_symbol:
+                        
+                        if pt_tendon_family_symbol:
                             detail_component = doc.Create.NewFamilyInstance(
-                                line, family_symbol[0], view
+                                line, pt_tendon_family_symbol, view
                             )
                             detail_component.LookupParameter("Comments").Set(comment)
 
@@ -52,19 +60,16 @@ def process_csv_file(file_path):
                     text = row[3]
 
                     with revit.Transaction("Create Text Note"):
-                        text_note_type = query.get_family_symbol(
-                            "T3.5 Transparent", "T3.5 Transparent", doc
-                        )
-                        if text_note_type:
+                        if text_note_family_symbol:
                             text_note = DB.TextNote.Create(
-                                doc, view.Id, point, text, text_note_type[0].Id
+                                doc, view.Id, point, text, text_note_family_symbol.Id
                             )
                             rotate_detail_component(
                                 text_note,
                                 current_start_point,
                                 current_end_point,
                                 point,
-                                adjust_rotation=True,
+                                # adjust_rotation=True,
                             )
 
                 elif element_type == "Point":
@@ -73,10 +78,8 @@ def process_csv_file(file_path):
                     low_high = row[5]
 
                     with revit.Transaction("Create PT_Height Family Instance"):
-                        pt_height_family_symbol = query.get_family_symbol(
-                            "PT Height_HERA", "PT Height_HERA", doc
-                        )
-                        pt_height = doc.Create.NewFamilyInstance(point, pt_height_family_symbol[0], view)
+                        
+                        pt_height = doc.Create.NewFamilyInstance(point, pt_height_family_symbol, view)
                         pt_height.LookupParameter("Height").Set(height)
                         if pt_height:
                             rotate_detail_component(
