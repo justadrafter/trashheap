@@ -57,7 +57,7 @@ def process_csv_file(file_path):
 
                 elif element_type == "End" or element_type == "Start":
                     point = prXYZ(row[1], row[2])
-                    text = row[3]+"CL"
+                    text = row[3]
 
                     with revit.Transaction("Create Text Note"):
                         if text_note_family_symbol:
