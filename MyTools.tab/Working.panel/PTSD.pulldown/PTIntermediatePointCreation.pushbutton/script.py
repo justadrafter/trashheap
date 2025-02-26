@@ -8,7 +8,6 @@ from revitfunctions.PT_funcs import (
     revit,
 )
 
-
 def main():
     populate_family_symbols()
 

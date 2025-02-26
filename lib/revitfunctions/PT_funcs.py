@@ -8,6 +8,9 @@ UIDOC = revit.uidoc
 DOC = UIDOC.Document
 SCRIPT_OUTPUT = script.get_output()
 ACTIVEVIEW_RL = round(DOC.ActiveView.GenLevel.ProjectElevation, 2)
+ACTIVEVIEW_TOP = round(DOC.ActiveView.GetViewRange().GetOffset(DB.PlanViewPlane.TopClipPlane), 2)
+ACTIVEVIEW_PLANE = round(DOC.ActiveView.GetViewRange().GetOffset(DB.PlanViewPlane.CutPlane), 2)
+ACTIVEVIEW_BTM = round(DOC.ActiveView.GetViewRange().GetOffset(DB.PlanViewPlane.BottomClipPlane), 2)
 
 # Family Symbol Naming
 POINT_FAMILYSYMBOL = "PT Height_HERA"
@@ -137,19 +140,18 @@ class Tendon:
         for idx in range(len(prim_points) - 1):
             error = False
             start_bottom = get_bottom_and_top_RL(prim_points[idx].Location.Point)[0]
+            # print("start_bottom: {}".format(start_bottom))
             if start_bottom is None:
                 start_bottom = 999999
-                SCRIPT_OUTPUT.log_debug(
-                    "create_intermediate_points: start soffit RL is incorrect"
-                )
+                print("Error: create_intermediate_points: start soffit RL is incorrect")
                 error = True
             start_height = float(self.sorted_heights[idx]) + start_bottom
+            # print("start_height: {}".format(start_height))
             end_bottom = get_bottom_and_top_RL(prim_points[idx + 1].Location.Point)[0]
+            # print("end_bottom: {}".format(end_bottom))
             if end_bottom is None:
                 end_bottom = 999999
-                SCRIPT_OUTPUT.log_debug(
-                    "create_intermediate_points: end soffit RL is incorrect"
-                )
+                print("Error: create_intermediate_points: end soffit RL is incorrect")
                 error = True
             end_height = float(self.sorted_heights[idx + 1]) + end_bottom
             if error:
@@ -370,14 +372,12 @@ def get_line_data(line):
 
 
 def get_bottom_and_top_RL(point):
-    bb_start_offset = 1500 / 304.8
-    bb_end_offset = 1500 / 304.8
     try:
         outline = DB.Outline(
-            DB.XYZ(point.X - 1, point.Y - 1, point.Z - bb_end_offset),
-            DB.XYZ(point.X + 1, point.Y + 1, point.Z + bb_start_offset),
+            DB.XYZ(point.X - 1, point.Y - 1, point.Z + ACTIVEVIEW_BTM-ACTIVEVIEW_PLANE),
+            DB.XYZ(point.X + 1, point.Y + 1, point.Z + ACTIVEVIEW_TOP-ACTIVEVIEW_PLANE),
         )
-        # test = create_model_line(DB.XYZ(point.X, point.Y, point.Z + bb_start_offset),DB.XYZ(point.X, point.Y, point.Z - bb_end_offset))
+        # test = create_model_line(DB.XYZ(point.X, point.Y, point.Z + ACTIVEVIEW_TOP-ACTIVEVIEW_PLANE),DB.XYZ(point.X, point.Y, point.Z + ACTIVEVIEW_BTM-ACTIVEVIEW_PLANE))
         # print(test.Id)
 
         bbox_filter = DB.BoundingBoxIntersectsFilter(outline)
@@ -389,7 +389,7 @@ def get_bottom_and_top_RL(point):
         lowest_pt, highest_pt = 0, 0
 
         if collector.GetElementCount() == 0:
-            SCRIPT_OUTPUT.log_debug("get_bottom_and_top_RL: Element Count is 0")
+            print("Error: get_bottom_and_top_RL: Element Count is 0")
         else:
             transform = revit.doc.ActiveProjectLocation.GetTotalTransform().Inverse
             lines = []

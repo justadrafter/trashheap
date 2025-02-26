@@ -53,7 +53,7 @@ def process_csv_file(file_path):
                             detail_component = doc.Create.NewFamilyInstance(
                                 line, pt_tendon_family_symbol, view
                             )
-                            detail_component.LookupParameter("Comments").Set(comment)
+                            detail_component.LookupParameter("PT Strand #").Set(comment)
 
                 elif element_type == "End" or element_type == "Start":
                     point = prXYZ(row[1], row[2])
