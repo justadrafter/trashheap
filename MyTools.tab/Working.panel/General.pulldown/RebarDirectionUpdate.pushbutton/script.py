@@ -4,7 +4,7 @@ Sets instance parameter "Reinforcement Direction (Instance)" to "X" or "Y".
 Assumes the active view is a structural plan.
 """
 
-__title__ = "Set the Reinforcement Direction (Instance) parameter of selected Rebars"
+__title__ = "Get Rebar Dir"
 
 from pyrevit import revit, DB, forms
 import math
@@ -16,34 +16,35 @@ def get_xy_direction(rebar):
     Given a Rebar element, return the normalized direction vector (X, Y) 
     of its first centerline segment.
     """
+    
     if not isinstance(rebar, DB.Structure.Rebar):
         return None
 
     curves = rebar.GetCenterlineCurves(
         True,   # adjustForSelfIntersection
-        False,  # suppressHooks
-        False,  # suppressBendRadius
+        True,  # suppressHooks
+        True,  # suppressBendRadius
         DB.Structure.MultiplanarOption.IncludeOnlyPlanarCurves,
         0       # barPositionIndex
     )
-
+    
     if not curves or curves.Count == 0:
         return None
 
-    curve = curves[0]
-    try:
-        start = curve.GetEndPoint(0)
-        end = curve.GetEndPoint(1)
-    except:
-        return None
+    for curve in curves:
+        direction = curve.Direction
 
-    dx = end.X - start.X
-    dy = end.Y - start.Y
-    length = math.sqrt(dx**2 + dy**2)
-    if length == 0:
-        return None
-
-    return (dx/length, dy/length)
+        # Only proceed if both X and Y components are significant
+        if abs(direction.X) > 0.0001 or abs(direction.Y) > 0.0001:
+            start = curve.GetEndPoint(0)
+            end = curve.GetEndPoint(1)
+            dx = end.X - start.X
+            dy = end.Y - start.Y
+            length = math.sqrt(dx**2 + dy**2)
+            if length > 0:
+                return (dx/length, dy/length)
+            else:
+                return None
 
 def set_direction_parameter(rebar, direction):
     """
