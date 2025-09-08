@@ -1,7 +1,6 @@
-# -*- coding: utf-8 -*-
 """Disallows framing joins at both ends of selected framing elements."""
 
-__title__ = "Unjoins both ends of selected framing elements"
+__title__ = "Unjoin Ends"
 __author__ = "Adam"
 
 from Autodesk.Revit import DB

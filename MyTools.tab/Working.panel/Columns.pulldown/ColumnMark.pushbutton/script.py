@@ -111,7 +111,12 @@ def create_family_name_filter(keywords):
     return LogicalOrFilter(rules)
 
 family_name_filter = create_family_name_filter(column_family_types)
-concretecols_collection = DB.FilteredElementCollector(doc).OfCategory(DB.BuiltInCategory.OST_StructuralColumns).WhereElementIsNotElementType().WherePasses(family_name_filter)
+
+sel_ids = uidoc.Selection.GetElementIds()
+
+base = (DB.FilteredElementCollector(doc, List[DB.ElementId](sel_ids)) if sel_ids else DB.FilteredElementCollector(doc))
+
+concretecols_collection = (base.OfCategory(DB.BuiltInCategory.OST_StructuralColumns).WhereElementIsNotElementType().WherePasses(family_name_filter).ToElements())
 
 # Preprocess columns for efficient access
 columnData = {}
