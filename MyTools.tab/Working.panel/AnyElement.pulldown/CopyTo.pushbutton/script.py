@@ -14,6 +14,7 @@ from pyrevit import revit
 # Get the active UIDocument and Document
 uidoc = __revit__.ActiveUIDocument
 doc = uidoc.Document
+view = doc.ActiveView
 opts = CopyPasteOptions()
 
 def copy_elements_with_transform(doc, element_ids, transform):

@@ -112,7 +112,8 @@ concretecols_collection = DB.FilteredElementCollector(doc).OfCategory(DB.BuiltIn
 
 #Main:
 selected_ids = uidoc.Selection.GetElementIds()
-selected_columns = [doc.GetElement(id) for id in selected_ids if doc.GetElement(id).Category.Id.IntegerValue == int(BuiltInCategory.OST_StructuralColumns)]
+selected_columns = [doc.GetElement(id) for id in selected_ids if doc.GetElement(id).Category.BuiltInCategory == BuiltInCategory.OST_StructuralColumns]
+
 if len(selected_columns) == 0:
     selected_columns = concretecols_collection
 

@@ -8,7 +8,7 @@ Usage:
 2. Run this script.
 """
 
-from Autodesk.Revit.DB import BuiltInCategory, Transaction, XYZ
+from Autodesk.Revit.DB import BuiltInCategory, Transaction, XYZ, FilteredElementCollector, ElementId
 from System.Collections.Generic import List
 
 from pyrevit import revit, DB, forms
@@ -62,11 +62,19 @@ def main():
     uidoc = revit.uidoc
     
     selected_ids = uidoc.Selection.GetElementIds()
+
+    if not selected_ids:
+        forms.alert("No elements selected. Please select foundations and columns, then run the script again.")
+        return
     
-    foundations = [doc.GetElement(elem_id) for elem_id in selected_ids 
-                   if doc.GetElement(elem_id).Category.Id.IntegerValue == int(BuiltInCategory.OST_StructuralFoundation)]
-    columns = [doc.GetElement(elem_id) for elem_id in selected_ids 
-               if doc.GetElement(elem_id).Category.Id.IntegerValue == int(BuiltInCategory.OST_StructuralColumns)]
+    foundations = (FilteredElementCollector(doc, List[ElementId](selected_ids))
+               .OfCategory(BuiltInCategory.OST_StructuralFoundation)
+               .WhereElementIsNotElementType()
+               .ToElements())
+    columns = (FilteredElementCollector(doc, List[ElementId](selected_ids))
+               .OfCategory(BuiltInCategory.OST_StructuralColumns)
+               .WhereElementIsNotElementType()
+               .ToElements())
     
     if not foundations:
         forms.alert("No foundations selected. Please select foundations and columns, then run the script again.")

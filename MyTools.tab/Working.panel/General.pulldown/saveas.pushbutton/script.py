@@ -22,7 +22,7 @@ def main():
     if not doc.IsWorkshared:
         print("Not a workshared model.")
         return
-
+    
     cmp = doc.GetCloudModelPath()
     model_guid = cmp.GetModelGUID().ToString()
     project_guid = cmp.GetProjectGUID().ToString()
