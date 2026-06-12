@@ -26,7 +26,7 @@ def get_related_tags(doc, selected_ids, revit_version):
     related_tags = set()
     if revit_version.startswith("2022"):
         related_tags = {tag for tag in tags if tag.TaggedLocalElementId in selected_ids}
-    elif revit_version.startswith("2024"):
+    else:
         related_tags = {
             tag for tag in tags
             if any(tag_id in selected_ids for tag_id in tag.GetTaggedLocalElementIds())

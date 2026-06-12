@@ -36,7 +36,7 @@ def get_related_tags_in_engineering_plans(doc, selected_ids, revit_version):
         # Check if tag is related to selected elements
         if revit_version.startswith("2022"):
             return tag.TaggedLocalElementId in selected_ids
-        elif revit_version.startswith("2024"):
+        else:
             return any(
                 tag_id in selected_ids for tag_id in tag.GetTaggedLocalElementIds()
             )
