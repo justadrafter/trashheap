@@ -1,28 +1,40 @@
-from rpw.ui.forms import TextInput
 from Autodesk.Revit import DB
 from Autodesk.Revit.DB import Element, Transaction
+from rpw.ui.forms import FlexForm, Button, TextBox, Label, Separator
 import re
+
 
 uidoc = __revit__.ActiveUIDocument
 doc = __revit__.ActiveUIDocument.Document
 t = Transaction(doc, 'Set Parameter by Name')
 
-_inputvalue = TextInput('Enter Size', default="")
-_inputvalue = re.findall(r'[A-Za-z]+|\d+', _inputvalue)
-_length = 0
+components = [
+    Label("No. Bars:"),
+    TextBox("bars_num", Text=""),
+
+    Label("Bar Size Code:"),
+    TextBox("bars_size", Text=""),
+
+    Label("Spacing (mm):"),
+    TextBox("bars_spacing", Text=""),
+
+    Label("Length (mm):"),
+    TextBox("bars_length", Text=""),
+    Separator(),
+    Button("OK")
+]
+
+form = FlexForm('Test', components)
+form.show()
+
 _textbtm = ""
 _texttop = ""
 _textloc = 0
 
-if not _inputvalue:
-    _barnum_temp = ""
-    _bars_temp = ""
-else:
-    try:
-        _barnum_temp, _bars_temp, _length = _inputvalue
-    except:
-        _barnum_temp, _bars_temp = _inputvalue
-
+_barnum = int(form.values["bars_num"])
+_bars = form.values["bars_size"]
+_bars_spacing = int(form.values["bars_spacing"])
+_length = int([0 if form.values["bars_length"] == "" else form.values["bars_length"]][0])
 
 def get_length(string):
     temp_len = 0
@@ -44,12 +56,9 @@ def get_length(string):
     return temp_len
 
 
-def get_cts(barchar):
-    _bars_cts = [["AaEeJjNnSsWw", 300], ["BbFfKkPpTtXx", 250], ["CcGgLlQqUuYy", 200], ["DdHhMmRrVvZz", 150]]
-    for i in _bars_cts:
-        j, k = i
-        if barchar in j:
-            return (k)
+def get_barsize(barchar):
+    _barsize = {"A":10, "B":12,"C":16,"D":20,"E":24,"F":28,"G":32,"H":36,"J":40}
+    return _barsize[barchar]
 
 
 def get_parameter_value_by_name(element, parameterName):
@@ -98,15 +107,7 @@ for _detail in selection:
         _text_btm_on = get_parameter_value_by_name(_detail, "Text BTM Vis")
         _text_getbtm = get_parameter_value_by_name(_detail, "Text BTM")
 
-    if _barnum_temp == "" and _bars_temp == "":
-        _tempval = _text_gettop.split("-")
-        _barnum = _tempval[0]
-        _bars = _tempval[1]
-    else:
-        _barnum = _barnum_temp
-        _bars = _bars_temp
-
-    _newbarcts = (int(_barnum) - 1) * get_cts(_bars)
+    _newbarcts = (int(_barnum) - 1) * _bars_spacing
     _diff = (_newbarcts - (_start + _end)) / 2
     _length = int(_length)
 
@@ -116,7 +117,7 @@ for _detail in selection:
         _startnew = _start + _diff
         _endnew = _end + _diff
 
-    _texttop = (_barnum + "-" + _bars).upper()
+    _texttop = (str(_barnum) + "-" + _bars + str(_bars_spacing/10)).upper()
     if _length:
         _textbtm = str(_length) + " LG"
     elif _text_btm_on == 'Yes':
