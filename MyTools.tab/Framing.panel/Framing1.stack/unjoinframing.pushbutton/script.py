@@ -1,27 +1,35 @@
-"""Disallows framing joins at both ends of selected framing elements."""
+# -*- coding: utf-8 -*-
+"""
+Disallow framing joins at both ends of selected structural framing elements.
 
-__title__ = "Unjoin Ends"
-__author__ = "Adam"
+Usage:
+1. Select one or more structural framing elements.
+2. Run the script.
+"""
 
 from Autodesk.Revit import DB
-from pyrevit import revit, forms, script
+from pyrevit import revit
 
-doc = revit.doc
-uidoc = revit.uidoc
+__title__ = "Unjoin Ends"
+__author__ = "Adam Shaw"
 
-# Get selected elements
-selection = [doc.GetElement(id) for id in uidoc.Selection.GetElementIds()]
+framing_category = int(
+    DB.BuiltInCategory.OST_StructuralFraming
+)
 
-# Filter for structural framing elements
-framing_elements = [elem for elem in selection 
-                    if elem.Category.Id.IntegerValue == int(DB.BuiltInCategory.OST_StructuralFraming)]
+framing_elements = [
+    element for element in revit.get_selection()
+    if element.Category
+    and element.Category.Id.Value == framing_category
+]
 
-# Start a transaction
 with revit.Transaction("Disallow Framing Joins at Both Ends"):
-    # Iterate through selected framing elements
     for element in framing_elements:
-        # Disallow join at start
-        DB.Structure.StructuralFramingUtils.DisallowJoinAtEnd(element, 0)
-        
-        # Disallow join at end
-        DB.Structure.StructuralFramingUtils.DisallowJoinAtEnd(element, 1)
+        DB.Structure.StructuralFramingUtils.DisallowJoinAtEnd(
+            element,
+            0
+        )
+        DB.Structure.StructuralFramingUtils.DisallowJoinAtEnd(
+            element,
+            1
+        )

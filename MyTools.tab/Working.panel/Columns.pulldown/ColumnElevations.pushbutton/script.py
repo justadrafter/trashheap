@@ -17,16 +17,16 @@ column_family_types = ["Concrete", "PRECAST", "FRC"]
 section_types = FilteredElementCollector(revit.doc).OfClass(ViewFamilyType).ToElements()
 section_type = next((st.Id for st in section_types if st.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_NAME).AsString() == "SEC-COL"),None)
 
+view_names = [view.Name for view in DB.FilteredElementCollector(revit.doc).OfClass(DB.View)]
+
 def create_secs(in_bb,mark):
-    # Get the bounding box of the column
     min_point = in_bb.Min
     max_point = in_bb.Max
     
-    # Determine the mid-point and height of the column
     midpoint = XYZ((min_point.X + max_point.X) / 2, (min_point.Y + max_point.Y) / 2, (min_point.Z + max_point.Z)/2)
     height = max_point.Z - min_point.Z
 
-    # Determine lengths to decide directions and adjust for longest and shortest faces
+    # Determine lengths to decide directions
     length_x = max_point.X - min_point.X
     length_y = max_point.Y - min_point.Y
  
@@ -65,11 +65,19 @@ def create_secs(in_bb,mark):
     section_box_y.Min = bbox_min_y
     section_box_y.Max = bbox_max_y
     
-    # Create section view
+    # Create section views
+    name_x = "{}_x".format(mark)
+    name_y = "{}_y".format(mark)
+
+    if name_x in view_names or name_y in view_names:
+        print("Error: View name already exists.")
+        return
+
     secn_x = DB.ViewSection.CreateSection(revit.doc, section_type, section_box_x)
-    secn_x.Name = "{}_x".format(mark)
+    secn_x.Name = name_x
     secn_y = DB.ViewSection.CreateSection(revit.doc, section_type, section_box_y)
-    secn_y.Name = "{}_y".format(mark)
+    secn_y.Name = name_y
+    view_names.extend([name_x, name_y])
 
 def get_combined_bb(selection):
     # Initialize the min and max points
@@ -81,8 +89,8 @@ def get_combined_bb(selection):
     for id in selection:
         # Get the element's bounding box
         bb = id.get_BoundingBox(None)
-        if bb:  # If the element has a bounding box
-            # Update min and max points directly without cloning or comparing each time
+        if bb:
+            # Update min and max points
             min_point = XYZ(min(min_point.X, bb.Min.X), min(min_point.Y, bb.Min.Y), min(min_point.Z, bb.Min.Z))
             max_point = XYZ(max(max_point.X, bb.Max.X), max(max_point.Y, bb.Max.Y), max(max_point.Z, bb.Max.Z))
     bb.Min = min_point
@@ -93,7 +101,7 @@ def create_family_name_filter(keywords):
     """Creates a filter to find elements whose family names contain any of the specified keywords."""
     param_id = ElementId(BuiltInParameter.ALL_MODEL_FAMILY_NAME)
     f_param = ParameterValueProvider(param_id)
-    rules = List[ElementFilter]()  # Specify the list type as ElementFilter
+    rules = List[ElementFilter]()
 
     for keyword in keywords:
         filter_contains = FilterStringContains()
@@ -104,7 +112,6 @@ def create_family_name_filter(keywords):
         epf = ElementParameterFilter(f_rule)
         rules.Add(epf)  # Add the ElementParameterFilter, which is an ElementFilter
 
-    # Combine filter rules into a single filter using a logical OR
     return LogicalOrFilter(rules)
 
 family_name_filter = create_family_name_filter(column_family_types)
@@ -117,13 +124,11 @@ selected_columns = [doc.GetElement(id) for id in selected_ids if doc.GetElement(
 if len(selected_columns) == 0:
     selected_columns = concretecols_collection
 
-# Grouping columns by 'Column Mark No'
 columns_by_mark = defaultdict(list)
 for column in selected_columns:
     mark_no = column.LookupParameter('Column Mark No').AsString()
     columns_by_mark[mark_no].append(column)
 
-# Running get_combined_bb for each group
 t = Transaction(revit.doc, 'Create Column XY Sections')
 t.Start()
 
