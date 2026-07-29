@@ -70,7 +70,7 @@ def create_secs(in_bb,mark):
     name_y = "{}_y".format(mark)
 
     if name_x in view_names or name_y in view_names:
-        print("Error: View name already exists.")
+        print("Error: View name for column {} already exists.".format(mark))
         return
 
     secn_x = DB.ViewSection.CreateSection(revit.doc, section_type, section_box_x)
