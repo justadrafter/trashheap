@@ -135,13 +135,25 @@ class DetailElmentSelectionFilter(UI.Selection.ISelectionFilter):
         # Check if the element is view-specific, not part of a group, and is a detail component
         if (
             element.ViewSpecific
-            and element.GroupId == element.GroupId.InvalidElementId
+            and element.GroupId == ElementId.InvalidElementId
+            and element.Category is not None
             and element.Category.Id == ElementId(BuiltInCategory.OST_DetailComponents)
         ):
             # Retrieve the parameter
             for param_name, param_value in self.param_filters:
                 param = element.LookupParameter(param_name)
-                if not param or param.AsValueString() != param_value:
+                if not param:
+                    return False
+
+                actual_value = param.AsValueString()
+                if param_name == "Type":
+                    if (
+                        actual_value is None
+                        or param_value is None
+                        or param_value.lower() not in actual_value.lower()
+                    ):
+                        return False
+                elif actual_value != param_value:
                     return False
             return True
 
