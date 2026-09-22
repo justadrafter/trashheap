@@ -14,7 +14,7 @@ from pyrevit.revit.db import query
 from revitfunctions.basics import mm_to_feet, feet_to_mm
 
 
-__title__ = "Folder"
+__title__ = "Creater folds from overlaps"
 __author__ = "Adam Shaw"
 
 
