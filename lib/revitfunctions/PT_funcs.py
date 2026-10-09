@@ -7,10 +7,6 @@ from Autodesk.Revit.DB import XYZ, SketchPlane, Line, Plane
 UIDOC = revit.uidoc
 DOC = UIDOC.Document
 SCRIPT_OUTPUT = script.get_output()
-ACTIVEVIEW_RL = round(DOC.ActiveView.GenLevel.ProjectElevation, 2)
-ACTIVEVIEW_TOP = round(DOC.ActiveView.GetViewRange().GetOffset(DB.PlanViewPlane.TopClipPlane), 2)
-ACTIVEVIEW_PLANE = round(DOC.ActiveView.GetViewRange().GetOffset(DB.PlanViewPlane.CutPlane), 2)
-ACTIVEVIEW_BTM = round(DOC.ActiveView.GetViewRange().GetOffset(DB.PlanViewPlane.BottomClipPlane), 2)
 
 # Family Symbol Naming
 POINT_FAMILYSYMBOL = "PT Height_HERA"
@@ -22,6 +18,41 @@ TENDON_TYPE = "PT Tendon"
 XYTOLERANCE = 100.0 / 304.8  # 100mm
 ANGLETOLERANCE = 10.0 / 180 * math.pi  # 10 DEG
 BOTTOMCOVER = 30  # 30mm
+
+
+def get_active_view_level_rl():
+    """Read the current view's level elevation without accessing its view range."""
+    active_view = DOC.ActiveView
+    level = active_view.GenLevel
+    if level is None:
+        raise RuntimeError(
+            "PT height calculations require an active view with an associated level. "
+            "Active view: '{}' ({}).".format(active_view.Name, active_view.ViewType)
+        )
+    return round(level.ProjectElevation, 2)
+
+
+def get_active_view_range_offsets():
+    """Return the current plan's top, cut-plane, and bottom offsets in feet."""
+    active_view = DOC.ActiveView
+    if not isinstance(active_view, DB.ViewPlan):
+        raise RuntimeError(
+            "PT view-range calculations require a plan view. "
+            "Active view: '{}' ({}).".format(active_view.Name, active_view.ViewType)
+        )
+    try:
+        view_range = active_view.GetViewRange()
+        return (
+            round(view_range.GetOffset(DB.PlanViewPlane.TopClipPlane), 2),
+            round(view_range.GetOffset(DB.PlanViewPlane.CutPlane), 2),
+            round(view_range.GetOffset(DB.PlanViewPlane.BottomClipPlane), 2),
+        )
+    except Exception as error:
+        raise RuntimeError(
+            "Could not read the view range for active plan '{}': {}".format(
+                active_view.Name, error
+            )
+        )
 
 
 class Tendon:
@@ -364,20 +395,30 @@ def sort_objects_along_line(objects, start_point):
 
 
 def get_line_data(line):
+    active_view_rl = get_active_view_level_rl()
     start_point_z = round(line.GetEndPoint(0).Z, 2)
     end_point_z = round(line.GetEndPoint(1).Z, 2)
     length = round(line.Length, 2)
-    z_distance = abs(start_point_z - ACTIVEVIEW_RL)
+    z_distance = abs(start_point_z - active_view_rl)
     return (line, z_distance, length, start_point_z, end_point_z)
 
 
 def get_bottom_and_top_RL(point):
+    # View errors must propagate instead of becoming missing geometry results.
+    active_view_top, active_view_plane, active_view_btm = (
+        get_active_view_range_offsets()
+    )
     try:
         outline = DB.Outline(
-            DB.XYZ(point.X - 1, point.Y - 1, point.Z + ACTIVEVIEW_BTM-ACTIVEVIEW_PLANE),
-            DB.XYZ(point.X + 1, point.Y + 1, point.Z + ACTIVEVIEW_TOP-ACTIVEVIEW_PLANE),
+            DB.XYZ(
+                point.X - 1, point.Y - 1,
+                point.Z + active_view_btm - active_view_plane,
+            ),
+            DB.XYZ(
+                point.X + 1, point.Y + 1,
+                point.Z + active_view_top - active_view_plane,
+            ),
         )
-        # test = create_model_line(DB.XYZ(point.X, point.Y, point.Z + ACTIVEVIEW_TOP-ACTIVEVIEW_PLANE),DB.XYZ(point.X, point.Y, point.Z + ACTIVEVIEW_BTM-ACTIVEVIEW_PLANE))
         # print(test.Id)
 
         bbox_filter = DB.BoundingBoxIntersectsFilter(outline)
@@ -588,10 +629,11 @@ def create_all_intermediate_points(tendon_group):
 
 
 def create_tendon_heights(tendon):
+    active_view_rl = get_active_view_level_rl()
     start_point = get_actual_tendon_curve(tendon).GetEndPoint(0)
-    start_point = DB.XYZ(start_point.X, start_point.Y, ACTIVEVIEW_RL)
+    start_point = DB.XYZ(start_point.X, start_point.Y, active_view_rl)
     end_point = get_actual_tendon_curve(tendon).GetEndPoint(1)
-    end_point = DB.XYZ(end_point.X, end_point.Y, ACTIVEVIEW_RL)
+    end_point = DB.XYZ(end_point.X, end_point.Y, active_view_rl)
     temp_start_comment = ""
     temp_end_comment = ""
 
