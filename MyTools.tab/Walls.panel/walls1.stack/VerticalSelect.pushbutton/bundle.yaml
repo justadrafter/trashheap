@@ -1,0 +1,9 @@
+title: Vertical Select
+tooltip: |
+  Select one wall, then select walls above and below it throughout the project.
+  More than 10% of each candidate's solid volume must intersect the original wall's vertical footprint.
+  Straight-wall pairs must be parallel within 0.1 degrees; reversed directions are equivalent.
+  Each wall's model bounding box must overlap vertically or be within 1 m of the original wall.
+  The footprint uses the union of extruded planar underside faces, including raised undersides around openings.
+  Curved walls with vertical curved faces are supported; nonvertical curved reference faces are unsupported.
+  The original wall remains the reference; the search does not grow through matches. Marks and wall types are ignored.
