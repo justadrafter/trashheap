@@ -1,0 +1,95 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Material based Join Priority"
+        Width="760" Height="600" MinWidth="660" MinHeight="480"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip"
+        FontFamily="Segoe UI" FontSize="12"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
+        Background="{DynamicResource MaterialWindowBrush}"
+        Foreground="{DynamicResource MaterialForegroundBrush}">
+    <!-- Python loads the shared styles and palette using absolute bundle paths. -->
+
+    <Grid Margin="20,12,20,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="16"/>
+                <ColumnDefinition Width="104"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,0,0,12"
+                       FontWeight="SemiBold" TextWrapping="Wrap"
+                       Text="Highest priority - cuts materials below"/>
+            <Grid Grid.Row="1" Grid.Column="0">
+                <ListBox x:Name="MaterialList" SelectionMode="Extended" AllowDrop="True"
+                         ToolTip="Use Ctrl-click or Shift-click to select multiple materials, then move or drag them to reorder."
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" ToolTip="{Binding}"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <Border x:Name="DropMarker" Height="2" Margin="2,0,18,0"
+                        VerticalAlignment="Top" Panel.ZIndex="2"
+                        Background="{DynamicResource MaterialFocusBrush}"
+                        IsHitTestVisible="False" Visibility="Collapsed"/>
+                <TextBlock x:Name="EmptyListMessage" Margin="16"
+                           Panel.ZIndex="1"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           TextAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource MaterialSubtleBrush}"
+                           IsHitTestVisible="False" Visibility="Collapsed"
+                           Text="No materials starting with HERA_ are available."/>
+            </Grid>
+            <StackPanel Grid.Row="1" Grid.Column="2">
+                <Button x:Name="MoveUpButton" Content="Move up" Margin="0,0,0,8"/>
+                <Button x:Name="MoveDownButton" Content="Move down"/>
+            </StackPanel>
+        </Grid>
+
+        <Border Grid.Row="1" Margin="0,16,0,0" Padding="12,10" CornerRadius="4"
+                Background="{DynamicResource MaterialPanelBrush}"
+                BorderBrush="{DynamicResource MaterialBorderBrush}" BorderThickness="1">
+            <StackPanel>
+                <TextBlock TextWrapping="Wrap"
+                           Text="The order is remembered when you close this window. Click Run joins to apply it to the selected elements."/>
+                <TextBlock x:Name="PresetStatus" Margin="0,4,0,0" TextWrapping="Wrap"
+                           Style="{DynamicResource MaterialCaptionStyle}"/>
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="2" Margin="0,16,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                <Button x:Name="LoadButton" Content="Load..." Margin="0,0,8,0"
+                        ToolTip="Load a material order from a JSON preset."/>
+                <Button x:Name="SaveButton" Content="Save as..." Margin="0,0,8,0"
+                        ToolTip="Save this order, including unavailable saved materials, as a JSON preset."/>
+                <Button x:Name="ResetButton" Content="Reset"
+                        ToolTip="Restore alphabetical order for the materials in this project."/>
+            </StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="16,0,0,0">
+                <Button x:Name="CancelButton" Content="Close" Margin="0,0,8,0"/>
+                <Button x:Name="RunButton" Content="Run joins" MinWidth="110"
+                        IsEnabled="False" ToolTipService.ShowOnDisabled="True"
+                        ToolTip="Join selected elements using the material priority shown above."/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

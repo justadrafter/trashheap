@@ -1,0 +1,27 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Fluent palette inspired by RevitLookup's LookupEngine.UI resources. -->
+    <SolidColorBrush x:Key="MaterialWindowBrush" Color="#FAFAFA"/>
+    <SolidColorBrush x:Key="MaterialForegroundBrush" Color="#E4000000"/>
+    <SolidColorBrush x:Key="MaterialSubtleBrush" Color="#9E000000"/>
+    <SolidColorBrush x:Key="MaterialWarningBrush" Color="#C42B1C"/>
+    <SolidColorBrush x:Key="MaterialDisabledBrush" Color="#5C000000"/>
+    <SolidColorBrush x:Key="MaterialControlBrush" Color="#80FFFFFF"/>
+    <SolidColorBrush x:Key="MaterialPanelBrush" Color="#B3FFFFFF"/>
+    <SolidColorBrush x:Key="MaterialTooltipBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="MaterialBorderBrush" Color="#0F000000"/>
+    <SolidColorBrush x:Key="MaterialButtonBrush" Color="#B3FFFFFF"/>
+    <SolidColorBrush x:Key="MaterialButtonHoverBrush" Color="#80F9F9F9"/>
+    <SolidColorBrush x:Key="MaterialButtonPressedBrush" Color="#4DF9F9F9"/>
+    <SolidColorBrush x:Key="MaterialButtonDisabledBrush" Color="#4DF9F9F9"/>
+    <SolidColorBrush x:Key="MaterialHoverBrush" Color="#09000000"/>
+    <SolidColorBrush x:Key="MaterialSelectionBrush" Color="#0078D4"/>
+    <SolidColorBrush x:Key="MaterialSelectionForegroundBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="MaterialFocusBrush" Color="#0078D4"/>
+    <SolidColorBrush x:Key="MaterialScrollThumbBrush" Color="#72000000"/>
+    <LinearGradientBrush x:Key="MaterialButtonBorderBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Offset="0" Color="#0F000000"/>
+        <GradientStop Offset="0.9" Color="#0F000000"/>
+        <GradientStop Offset="1" Color="#29000000"/>
+    </LinearGradientBrush>
+</ResourceDictionary>
