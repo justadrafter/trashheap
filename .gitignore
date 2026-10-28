@@ -2,3 +2,9 @@ MyTools.tab/Testing.panel/
 AI_Best_Practices.txt
 *.toml
 *.md
+
+# Canonical repository documentation
+!/AGENTS.md
+!/README.md
+!/SCRIPTS.md
+!/docs/**/*.md
