@@ -220,7 +220,7 @@ def save_qr_code(qr_image):
     downloads_path = os.path.normpath(os.path.expanduser("~/Downloads"))
     final_image_path = os.path.join(
         downloads_path,
-        "qrcode_color_replaced.png",
+        "QRCode_HERA.png",
     )
 
     writer = png.Writer(
