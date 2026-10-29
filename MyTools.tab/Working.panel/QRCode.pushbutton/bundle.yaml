@@ -2,4 +2,5 @@ title:
   en_us: Creates QR Code
 tooltip:
   en_us: >-
-    Place address into Manage > Project Information > Project QR Code
+    Enter a web address or text and click Generate QR code.
+    The PNG is saved to Downloads.

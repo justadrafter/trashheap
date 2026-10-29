@@ -1,0 +1,27 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Fluent palette inspired by RevitLookup's LookupEngine.UI resources. -->
+    <SolidColorBrush x:Key="QrWindowBrush" Color="#FAFAFA"/>
+    <SolidColorBrush x:Key="QrForegroundBrush" Color="#E4000000"/>
+    <SolidColorBrush x:Key="QrSubtleBrush" Color="#9E000000"/>
+    <SolidColorBrush x:Key="QrWarningBrush" Color="#C42B1C"/>
+    <SolidColorBrush x:Key="QrDisabledBrush" Color="#5C000000"/>
+    <SolidColorBrush x:Key="QrControlBrush" Color="#80FFFFFF"/>
+    <SolidColorBrush x:Key="QrPanelBrush" Color="#B3FFFFFF"/>
+    <SolidColorBrush x:Key="QrTooltipBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="QrBorderBrush" Color="#0F000000"/>
+    <SolidColorBrush x:Key="QrButtonBrush" Color="#B3FFFFFF"/>
+    <SolidColorBrush x:Key="QrButtonHoverBrush" Color="#80F9F9F9"/>
+    <SolidColorBrush x:Key="QrButtonPressedBrush" Color="#4DF9F9F9"/>
+    <SolidColorBrush x:Key="QrButtonDisabledBrush" Color="#4DF9F9F9"/>
+    <SolidColorBrush x:Key="QrHoverBrush" Color="#09000000"/>
+    <SolidColorBrush x:Key="QrSelectionBrush" Color="#0078D4"/>
+    <SolidColorBrush x:Key="QrSelectionForegroundBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="QrFocusBrush" Color="#0078D4"/>
+    <SolidColorBrush x:Key="QrScrollThumbBrush" Color="#72000000"/>
+    <LinearGradientBrush x:Key="QrButtonBorderBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Offset="0" Color="#0F000000"/>
+        <GradientStop Offset="0.9" Color="#0F000000"/>
+        <GradientStop Offset="1" Color="#29000000"/>
+    </LinearGradientBrush>
+</ResourceDictionary>

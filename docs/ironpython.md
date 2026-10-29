@@ -6,6 +6,7 @@ Read this when editing scripts that execute under IronPython or CPython/pythonne
 
 - Preserve the script's expected pyRevit engine and Revit version. Check changes with the **installed interpreter/runtime**, and distinguish standalone IronPython checks from execution inside Revit.
 - The installed pyRevit WPF loader may behave differently from current online examples. For details on XAML/resource loading and themes, see [WPF](wpf.md).
+- In pyRevit 7.0.0.26278+2233, `pyrevit.forms` selects an engine-specific backend. Its CPython `forms.WPFWindow` is a stub that raises `PyRevitCPythonNotSupported`; this does not mean native .NET WPF is unavailable. For a CPython button, load loose XAML with `System.Windows.Markup.XamlReader.Load` and compose a Python controller around the resulting Window. Wire controls found with `FindName`, load resource dictionaries from absolute URIs, and set the owner through `WindowInteropHelper`. QRCode's helper was checked with the installed CPython/Python.NET and real WPF outside Revit using a stubbed host context, then verified in Revit 2026 / CPython 3.12.3 on 2026-10-29: the real modal Generate/Cancel/X flow, current dark theme and Revit-window ownership passed. A standalone host must load the WPF assemblies before embedding Python.NET; Revit normally already hosts them.
 
 ## Overloaded .NET constructors
 
@@ -28,3 +29,9 @@ Read this when editing scripts that execute under IronPython or CPython/pythonne
 Initialize a `System.Windows.Forms.Form` subclass with `Form.__init__(self)` before assigning inherited properties such as `Text` or adding controls. In the installed pyRevit CPython 3.12.3 runtime on Revit 2024.3.6, omitting this initialization caused `System.NullReferenceException` in `Control.get_CacheTextInternal` / `Control.set_Text`. Explicit base initialization allowed construction, event handlers and disposal to pass.
 
 This was observed in `MyTools.tab/Working.panel/QRCode.pushbutton/script.py`. A `#!python3` button uses the CPython engine even when the default pyRevit engine is IronPython. Test against the actual selected engine; standalone Python syntax checks do not exercise .NET control construction. IronPython and other Revit versions were not verified in this task.
+
+## Windows paths and Explorer links under CPython
+
+Expanding a path such as `~/Downloads` can leave mixed separators when combined with Windows paths. Normalize filesystem/display paths with `os.path.normpath`.
+
+Do not assume an HTML `file://` link opens Explorer in the installed pyRevit output window. Inspection of pyRevit 7.0.0.26278+2233 on Revit 2024 found that its WebView2 navigation handler cancels `file` navigation; the available output helper commands have no folder-opening action. Its documented `output.renderer` API is also unavailable with WebView2. A native WinForms LinkLabel can launch Explorer explicitly with `subprocess.Popen(["explorer.exe", folder_path])`. Pass arguments as a list, and report launch errors separately from successful file generation. QRCode verification raised the actual native link event and launched Explorer for Downloads under CPython 3.12.3; special-character argument and error-path checks used mocks.

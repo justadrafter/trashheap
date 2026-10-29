@@ -16,23 +16,31 @@ clr.AddReference("System.Windows.Forms")
 clr.AddReference("System.Drawing")
 
 import os
+import subprocess
 
 import png
 import segno
+from pyrevit import script
+from qr_input_ui import show_qr_input
 
 from System.Drawing import Point, Size
 from System.Windows.Forms import (
     Button,
     DialogResult,
     Form,
+    FormBorderStyle,
+    FormStartPosition,
     Label,
-    TextBox,
+    LinkLabel,
+    MessageBox,
+    MessageBoxButtons,
+    MessageBoxIcon,
 )
 
 
 BOX_SIZE = 10
 MODULE_RATIO = 0.8
-QUIET_ZONE = 0
+QUIET_ZONE = 2  # 20 pixels on each side at BOX_SIZE = 10.
 
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
@@ -44,52 +52,59 @@ COLOR_D = (255, 191, 0)
 COLOR_E = (127, 0, 31)
 
 
-class InputForm(Form):
-    def __init__(self):
-        Form.__init__(self)
-        self.InitializeComponent()
-
-    def InitializeComponent(self):
-        self.Text = "Input Dialog"
-        self.Size = Size(300, 150)
-
-        self.label = Label()
-        self.label.Text = "Enter QR code data:"
-        self.label.Location = Point(10, 20)
-        self.label.Size = Size(280, 20)
-        self.Controls.Add(self.label)
-
-        self.textBox = TextBox()
-        self.textBox.Location = Point(10, 50)
-        self.textBox.Size = Size(280, 20)
-        self.Controls.Add(self.textBox)
-
-        self.okButton = Button()
-        self.okButton.Text = "OK"
-        self.okButton.Location = Point(190, 80)
-        self.okButton.Click += self.okButton_Click
-        self.Controls.Add(self.okButton)
-
-        self.cancelButton = Button()
-        self.cancelButton.Text = "Cancel"
-        self.cancelButton.Location = Point(110, 80)
-        self.cancelButton.Click += self.cancelButton_Click
-        self.Controls.Add(self.cancelButton)
-
-    def okButton_Click(self, sender, e):
-        self.DialogResult = DialogResult.OK
-
-    def cancelButton_Click(self, sender, e):
-        self.DialogResult = DialogResult.Cancel
-
-
 def get_user_input():
-    form = InputForm()
+    return show_qr_input()
 
-    if form.ShowDialog() == DialogResult.OK:
-        return form.textBox.Text
 
-    return None
+class SavedQRCodeForm(Form):
+    def __init__(self, image_path):
+        Form.__init__(self)
+        self.output_folder = os.path.dirname(image_path)
+        self.Text = "QR code saved"
+        self.ClientSize = Size(540, 125)
+        self.FormBorderStyle = FormBorderStyle.FixedDialog
+        self.StartPosition = FormStartPosition.CenterScreen
+        self.MaximizeBox = False
+        self.MinimizeBox = False
+        self.ShowInTaskbar = False
+
+        self.path_label = Label()
+        self.path_label.Text = image_path
+        self.path_label.Location = Point(10, 10)
+        self.path_label.Size = Size(520, 45)
+        self.Controls.Add(self.path_label)
+
+        self.folder_link = LinkLabel()
+        self.folder_link.Text = "Open in Windows Explorer"
+        self.folder_link.Location = Point(10, 65)
+        self.folder_link.Size = Size(300, 25)
+        self.folder_link.LinkClicked += self.open_output_folder
+        self.Controls.Add(self.folder_link)
+
+        self.close_button = Button()
+        self.close_button.Text = "Close"
+        self.close_button.Location = Point(440, 90)
+        self.close_button.DialogResult = DialogResult.OK
+        self.Controls.Add(self.close_button)
+        self.AcceptButton = self.close_button
+        self.CancelButton = self.close_button
+
+    def open_output_folder(self, sender, args):
+        try:
+            subprocess.Popen(["explorer.exe", self.output_folder])
+        except Exception:
+            script.get_logger().exception(
+                "Could not open QR output folder in Windows Explorer: {}".format(
+                    self.output_folder
+                )
+            )
+            MessageBox.Show(
+                "The QR code was saved, but Windows Explorer could not open:\n{}"
+                .format(self.output_folder),
+                "Open output folder",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error,
+            )
 
 
 def get_module_color(x, y, width, height):
@@ -202,7 +217,7 @@ def generate_qr_code(qr_data):
 def save_qr_code(qr_image):
     rows, image_size = qr_image
 
-    downloads_path = os.path.expanduser("~/Downloads")
+    downloads_path = os.path.normpath(os.path.expanduser("~/Downloads"))
     final_image_path = os.path.join(
         downloads_path,
         "qrcode_color_replaced.png",
@@ -222,12 +237,18 @@ def save_qr_code(qr_image):
     return final_image_path
 
 
-qr_data = get_user_input()
+def main():
+    qr_data = get_user_input()
 
-if qr_data is not None:
     qr_image = generate_qr_code(qr_data)
     final_image_path = save_qr_code(qr_image)
+    saved_form = SavedQRCodeForm(final_image_path)
+    try:
+        saved_form.ShowDialog()
+    finally:
+        saved_form.Dispose()
+    return final_image_path
 
-    print("QR code saved to: {}".format(final_image_path))
-else:
-    print("User cancelled the input dialog.")
+
+if __name__ == "__main__":
+    main()
